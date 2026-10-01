@@ -1,0 +1,9 @@
+{
+  "name": "dukaanquest-workspace",
+  "private": true,
+  "scripts": {
+    "dev": "npm --prefix dukaanquest-app run dev",
+    "build": "npm --prefix dukaanquest-app run build",
+    "preview": "npm --prefix dukaanquest-app run preview"
+  }
+}
