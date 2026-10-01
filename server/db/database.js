@@ -1,0 +1,153 @@
+const fs = require('fs');
+const path = require('path');
+
+const DB_FILE = path.join(__dirname, 'data.json');
+
+// Initial seed data
+const initialData = {
+  shopProfile: {
+    shopName: "Shree Ganesh Matching & Saree Centre",
+    ownerName: "Ramesh Kumar Yadav",
+    location: "Gandhi Bazaar, Bengaluru",
+    category: "Apparel & Ethnic Wear",
+    level: 2,
+    levelTitle: "Mohalla Merchant",
+    currentXp: 420,
+    nextLevelXp: 600,
+    streakDays: 4,
+    monthlyOfflineRevenue: 148500
+  },
+  products: [
+    {
+      id: "prod-001",
+      title: "Royal Kanjeevaram Pure Silk Zari Saree",
+      sku: "SG-KANJ-MRN-01",
+      category: "Saree",
+      basePrice: 4850,
+      mrp: 6999,
+      material: "100% Pure Mulberry Silk with Gold Zari",
+      colors: ["Deep Maroon", "Temple Gold Border"],
+      stockCount: 14,
+      description: "Authentic hand-woven traditional Kanjeevaram silk saree featuring rich temple border and contrast pallu.",
+      images: {
+        raw: "https://images.unsplash.com/photo-1610030469983-98e550d6193c?auto=format&fit=crop&w=600&q=80",
+        amazonMain: "https://images.unsplash.com/photo-1610030469983-98e550d6193c?auto=format&fit=crop&w=1000&q=85",
+        myntraLifestyle: "https://images.unsplash.com/photo-1617627143750-d86bc21e42bb?auto=format&fit=crop&w=1000&q=85",
+        fabricDetail: "https://images.unsplash.com/photo-1583391733956-3750e0ff4e8b?auto=format&fit=crop&w=1000&q=85",
+        dimensionGraphic: "https://images.unsplash.com/photo-1609357605129-26f69add5d6e?auto=format&fit=crop&w=1000&q=85"
+      },
+      platformListings: {
+        amazon: {
+          title: "SHREE GANESH Women's Kanjeevaram Pure Silk Saree with Blouse Piece (Maroon Gold, Free Size)",
+          bullets: [
+            "FABRIC EXCELLENCE: 100% Pure Mulberry Silk with authentic woven metallic Zari work.",
+            "TRADITIONAL WEAVE: South Indian temple motifs with dense contrast pallu design.",
+            "OCCASION READY: Ideal for Indian weddings, Diwali celebrations, and family festivities.",
+            "PACKAGE INCLUDES: 1 Saree (5.5M) + 1 Unstitched Matching Blouse Piece (0.8M).",
+            "CARE DIRECTIVE: Dry Clean Only."
+          ],
+          keywords: "silk saree, kanjeevaram, wedding saree, pattu saree, maroon gold saree"
+        },
+        flipkart: {
+          title: "SHREE GANESH Woven Kanjivaram Pure Silk Saree (Maroon)",
+          keyFeatures: [
+            "Type: Kanjivaram",
+            "Fabric: Pure Silk Blend",
+            "Blouse Piece: Included",
+            "Occasion: Wedding & Festive"
+          ]
+        },
+        myntra: {
+          title: "SHREE GANESH Traditional Woven Design Kanjeevaram Silk Saree",
+          curationNotes: "Elevate your festive wardrobe with this heirloom-worthy Kanjeevaram saree. Style with antique temple gold jewellery."
+        }
+      }
+    }
+  ],
+  customers: [
+    {
+      id: "cust-101",
+      name: "Ananya Deshpande",
+      phone: "+91 98450 12345",
+      tags: ["VIP", "Bridal"],
+      totalSpend: 24500,
+      language: "kn"
+    },
+    {
+      id: "cust-102",
+      name: "Sunita Sharma",
+      phone: "+91 97112 67890",
+      tags: ["VIP", "Festive"],
+      totalSpend: 18200,
+      language: "hi"
+    },
+    {
+      id: "cust-103",
+      name: "Meenakshi Sundaram",
+      phone: "+91 94441 55521",
+      tags: ["Inactive >30d"],
+      totalSpend: 7800,
+      language: "ta"
+    }
+  ],
+  readinessRules: {
+    amazon: {
+      name: "Amazon India",
+      checklist: [
+        { id: "amz-01", title: "50+ Micron Polybags with Suffocation Warning", mandatory: true, completed: true, xpReward: 30 },
+        { id: "amz-02", title: "FNSKU / Barcode Sticker (2 x 1 inch)", mandatory: true, completed: true, xpReward: 30 },
+        { id: "amz-03", title: "Outer Carton 'H-Taping' & 3-Foot Drop Test", mandatory: true, completed: false, xpReward: 40 },
+        { id: "amz-04", title: "GSTIN with HSN Code 5208 Verification", mandatory: true, completed: true, xpReward: 25 },
+        { id: "amz-05", title: "10-Day Customer Return Inspection Protocol", mandatory: false, completed: false, xpReward: 35 }
+      ]
+    },
+    flipkart: {
+      name: "Flipkart Seller Hub",
+      checklist: [
+        { id: "fk-01", title: "Flipkart Security Envelopes / Plain Polybag", mandatory: true, completed: true, xpReward: 30 },
+        { id: "fk-02", title: "Shipping Label with Barcoded Tracking AWB", mandatory: true, completed: false, xpReward: 35 },
+        { id: "fk-03", title: "GST Tax Invoice Insert inside Box", mandatory: true, completed: false, xpReward: 25 },
+        { id: "fk-04", title: "Quality Check Fold & Polybag Tagging", mandatory: false, completed: true, xpReward: 20 }
+      ]
+    },
+    myntra: {
+      name: "Myntra Partner Portal",
+      checklist: [
+        { id: "myn-01", title: "Brand Authorization / Self-Trademark Affidavit", mandatory: true, completed: false, xpReward: 50 },
+        { id: "myn-02", title: "Industrial Steam Press & Wrinkle-Free Packing", mandatory: true, completed: false, xpReward: 40 },
+        { id: "myn-03", title: "Standardized Garment Hangtag with Thread Seal", mandatory: true, completed: false, xpReward: 35 },
+        { id: "myn-04", title: "Curated Model/Mannequin Photography Verification", mandatory: true, completed: true, xpReward: 45 }
+      ]
+    }
+  },
+  quests: [
+    { id: "quest-01", title: "Master Amazon Apparel Packaging", xp: 60, completed: false },
+    { id: "quest-02", title: "AI Studio Transformation", xp: 50, completed: true },
+    { id: "quest-03", title: "Connect n8n Automation Engine", xp: 75, completed: false },
+    { id: "quest-04", title: "Run 'What-If' Simulation", xp: 40, completed: true }
+  ]
+};
+
+// Ensure database file exists
+function loadDB() {
+  if (!fs.existsSync(DB_FILE)) {
+    fs.writeFileSync(DB_FILE, JSON.stringify(initialData, null, 2), 'utf-8');
+    return initialData;
+  }
+  try {
+    const raw = fs.readFileSync(DB_FILE, 'utf-8');
+    return JSON.parse(raw);
+  } catch (err) {
+    console.error('Error reading DB file, resetting to initial seed:', err);
+    return initialData;
+  }
+}
+
+function saveDB(data) {
+  fs.writeFileSync(DB_FILE, JSON.stringify(data, null, 2), 'utf-8');
+}
+
+module.exports = {
+  loadDB,
+  saveDB
+};

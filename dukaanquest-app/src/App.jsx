@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { 
   Building2, 
   Package, 
@@ -13,7 +13,8 @@ import {
   Store,
   ExternalLink,
   ShieldCheck,
-  CheckCircle2
+  CheckCircle2,
+  Server
 } from 'lucide-react';
 import confetti from 'canvas-confetti';
 
@@ -26,29 +27,66 @@ import WhatsAppCRMHub from './components/crm/WhatsAppCRMHub';
 import WhatIfSimulator from './components/simulator/WhatIfSimulator';
 import PaytmPaymentHub from './components/paytm/PaytmPaymentHub';
 
+import * as api from './services/api';
+
 import { 
-  shopProfile, 
-  platformReadinessRules, 
-  sampleProducts, 
-  crmCustomers, 
-  activeQuests, 
+  shopProfile as fallbackProfile, 
+  platformReadinessRules as fallbackRules, 
+  sampleProducts as fallbackProducts, 
+  crmCustomers as fallbackCustomers, 
+  activeQuests as fallbackQuests, 
   languageTranslations 
 } from './data/mockData';
 
 export default function App() {
   const [activeTab, setActiveTab] = useState('town'); // town, readiness, studio, catalog, crm, simulator, paytm
   const [currentLang, setCurrentLang] = useState('en'); // en, hi, kn, ta
-  const [xp, setXp] = useState(shopProfile.currentXp);
-  const [level, setLevel] = useState(shopProfile.level);
-  const [rules, setRules] = useState(platformReadinessRules);
-  const [quests, setQuests] = useState(activeQuests);
+  const [profile, setProfile] = useState(fallbackProfile);
+  const [xp, setXp] = useState(fallbackProfile.currentXp);
+  const [level, setLevel] = useState(fallbackProfile.level);
+  const [rules, setRules] = useState(fallbackRules);
+  const [quests, setQuests] = useState(fallbackQuests);
+  const [customers, setCustomers] = useState(fallbackCustomers);
+  const [products, setProducts] = useState(fallbackProducts);
+  const [backendOnline, setBackendOnline] = useState(false);
 
   const t = languageTranslations[currentLang] || languageTranslations.en;
 
+  // Sync with Backend API on Mount
+  useEffect(() => {
+    async function initData() {
+      try {
+        const health = await api.fetchHealth();
+        if (health && health.status === 'ok') {
+          setBackendOnline(true);
+          const [dbShop, dbRules, dbQuests, dbCustomers, dbProducts] = await Promise.all([
+            api.fetchShopProfile(),
+            api.fetchReadinessRules(),
+            api.fetchQuests(),
+            api.fetchCustomers(),
+            api.fetchProducts()
+          ]);
+          if (dbShop) {
+            setProfile(dbShop);
+            setXp(dbShop.currentXp);
+            setLevel(dbShop.level);
+          }
+          if (dbRules) setRules(dbRules);
+          if (dbQuests) setQuests(dbQuests);
+          if (dbCustomers) setCustomers(dbCustomers);
+          if (dbProducts) setProducts(dbProducts);
+        }
+      } catch (err) {
+        console.warn('Backend API offline, continuing with local persistent state:', err);
+      }
+    }
+    initData();
+  }, []);
+
   // Calculate readiness percentage for Amazon
-  const amzItems = rules.amazon.checklist;
+  const amzItems = rules.amazon?.checklist || [];
   const amzCompleted = amzItems.filter(i => i.completed).length;
-  const amzProgress = Math.round((amzCompleted / amzItems.length) * 100);
+  const amzProgress = amzItems.length > 0 ? Math.round((amzCompleted / amzItems.length) * 100) : 0;
 
   // Handle XP Increase & Level-Up
   const addXp = (amount) => {
@@ -63,6 +101,7 @@ export default function App() {
       });
     }
     setXp(newXp);
+    api.updateShopXp(amount).catch(() => {});
   };
 
   // Toggle checklist item
@@ -80,6 +119,8 @@ export default function App() {
       };
     });
 
+    api.toggleReadinessTask(platform, taskId, completed).catch(() => {});
+
     if (completed) {
       addXp(xpReward);
     }
@@ -88,6 +129,7 @@ export default function App() {
   // Complete a quest
   const handleCompleteQuest = (questId, xpReward) => {
     setQuests(prev => prev.map(q => q.id === questId ? { ...q, completed: true } : q));
+    api.completeQuest(questId).catch(() => {});
     addXp(xpReward);
   };
 
@@ -131,9 +173,12 @@ export default function App() {
                 <span className="badge badge-brand" style={{ fontSize: '0.65rem' }}>
                   PS-21 FinTech
                 </span>
+                <span className={backendOnline ? "badge badge-emerald" : "badge badge-amber"} style={{ fontSize: '0.65rem', display: 'flex', alignItems: 'center', gap: '4px' }}>
+                  <Server size={11} /> {backendOnline ? "REST API Connected" : "Local Engine"}
+                </span>
               </div>
               <div style={{ fontSize: '0.75rem', color: 'var(--text-muted)' }}>
-                {shopProfile.shopName} • {shopProfile.location}
+                {profile.shopName} • {profile.location}
               </div>
             </div>
           </div>
@@ -257,7 +302,7 @@ export default function App() {
               <div className="glass-card" style={{ padding: '20px' }}>
                 <div style={{ fontSize: '0.75rem', color: 'var(--text-muted)', fontWeight: 600, textTransform: 'uppercase' }}>Monthly Offline Revenue</div>
                 <div style={{ fontSize: '1.6rem', fontWeight: 800, color: '#F8FAFC', marginTop: '4px' }}>
-                  ₹{shopProfile.monthlyOfflineRevenue.toLocaleString()}
+                  ₹{profile.monthlyOfflineRevenue.toLocaleString()}
                 </div>
                 <div style={{ fontSize: '0.75rem', color: '#10B981', display: 'flex', alignItems: 'center', gap: '4px', marginTop: '4px' }}>
                   ↑ Gandhi Bazaar Footfalls Steady
@@ -277,7 +322,7 @@ export default function App() {
               <div className="glass-card" style={{ padding: '20px' }}>
                 <div style={{ fontSize: '0.75rem', color: 'var(--text-muted)', fontWeight: 600, textTransform: 'uppercase' }}>WhatsApp CRM Reach</div>
                 <div style={{ fontSize: '1.6rem', fontWeight: 800, color: '#00BAF2', marginTop: '4px' }}>
-                  {shopProfile.registeredCustomers} Customers
+                  {customers.length} Customers
                 </div>
                 <div style={{ fontSize: '0.75rem', color: '#38BDF8', marginTop: '4px' }}>
                   n8n Automated Segmentation Active
@@ -300,7 +345,7 @@ export default function App() {
               quests={quests}
               level={level}
               xp={xp}
-              streak={shopProfile.streakDays}
+              streak={profile.streakDays}
               onCompleteQuest={handleCompleteQuest}
             />
 
@@ -319,7 +364,7 @@ export default function App() {
         {/* TAB 3: Engine 2 Gemini AI Photo Studio */}
         {activeTab === 'studio' && (
           <GeminiPhotoStudio 
-            sampleProducts={sampleProducts}
+            sampleProducts={products}
             t={t}
           />
         )}
@@ -327,7 +372,7 @@ export default function App() {
         {/* TAB 4: Engine 3 Omnichannel Catalog Transformer */}
         {activeTab === 'catalog' && (
           <OmnichannelCatalog 
-            sampleProducts={sampleProducts}
+            sampleProducts={products}
             t={t}
           />
         )}
@@ -335,7 +380,7 @@ export default function App() {
         {/* TAB 5: Engine 4 n8n WhatsApp CRM */}
         {activeTab === 'crm' && (
           <WhatsAppCRMHub 
-            customers={crmCustomers}
+            customers={customers}
             onDispatchCampaign={(count) => addXp(40)}
             currentLanguage={currentLang}
             t={t}
@@ -353,7 +398,7 @@ export default function App() {
         {/* TAB 7: Paytm FinTech Gateway */}
         {activeTab === 'paytm' && (
           <PaytmPaymentHub 
-            shopProfile={shopProfile}
+            shopProfile={profile}
             t={t}
           />
         )}
