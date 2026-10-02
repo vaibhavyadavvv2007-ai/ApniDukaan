@@ -63,9 +63,14 @@ app.get('/api/health', async (req, res) => {
       },
       paytm: {
         configured: paytm.configured,
+        isLive: false,
         mode: paytm.mode,
+        status: paytm.status,
+        classification: paytm.classification,
+        dashboardStatus: paytm.dashboardStatus,
         mid: paytm.mid,
-        environment: paytm.environment
+        environment: paytm.environment,
+        notice: paytm.notice
       },
       amazon: {
         configured: !!process.env.AMAZON_CLIENT_ID,

@@ -150,15 +150,20 @@ Traditional Indian mom-and-pop retailers ("Mohalla Kiranas & Dukaans") struggle 
   - **Resilient Fallback Mode:** When n8n is offline or unreachable, system automatically stages the broadcast payload in `staged-fallback` mode with 100% data integrity, preventing frontend crashes.
   - **Visual n8n Pipeline & Status Bar:** Real-time indicator displaying active Meta template, review status, and interactive workflow node diagram.
 
-### 3.6. Paytm FinTech Hub & Soundbox
+### 3.6. Paytm FinTech Hub & Soundbox (STAGED/FALLBACK Mode)
 - **Backend Service:** [server/services/paytmService.js](file:///c:/Users/yadav/OneDrive/Desktop/hacksprint/server/services/paytmService.js)
 - **Frontend Component:** [dukaanquest-app/src/components/paytm/PaytmPaymentHub.jsx](file:///c:/Users/yadav/OneDrive/Desktop/hacksprint/dukaanquest-app/src/components/paytm/PaytmPaymentHub.jsx)
+- **Operational Classification:** **STAGED / FALLBACK (NEVER LIVE)**.
+- **Context & Unblocking Architecture:**
+  - Paytm test-key generation is currently unavailable on the Paytm Developer Dashboard.
+  - DukaanQuest does not block on missing keys; the system operates in resilient STAGED/FALLBACK mode.
+  - The UI demonstrates the full intended payment-link creation, dynamic UPI QR standee, and vernacular Soundbox alerts using **clearly labeled demo data** (`[DEMO LINK]`, `DEMO QR`, `STAGED/FALLBACK`).
+  - **Zero-Code Staging Hook:** If real staging credentials become available later, populating `PAYTM_MERCHANT_KEY` in `server/.env` immediately activates the live staging call without any architectural or frontend code changes.
 - **Functionality:**
-  - One-click `"Generate Payment Link"` calls backend `/api/paytm/create-link`.
-  - Returns realistic payment link (`https://paytm.me/dukaan/...`), shortlink (`https://ptm.in/...`), and standard `upi://pay` intent URI.
-  - Dynamic QR code generation for counter-top scanning.
-  - **Simulated Paytm Soundbox:** Plays real audio chime and vernacular voice announcement ("Paytm par ₹4,850 prapt hue").
-  - Order settlement tracker with 0% MDR on UPI.
+  - Remote UPI Link generation with E.164 and Paytm-compliant schema.
+  - Counter-top UPI QR code standee preview with 0% MDR Bharat promotional tier.
+  - **Simulated Paytm Soundbox:** Plays real audio chime and Hindi voice broadcast (*"Paytm par ₹4,850 prapt hue"*).
+  - Deterministic settlement simulation (`T+0 Instant`).
 
 ### 3.7. Audited What-If Unit Economics Simulator
 - **Frontend Component:** [dukaanquest-app/src/components/simulator/WhatIfSimulator.jsx](file:///c:/Users/yadav/OneDrive/Desktop/hacksprint/dukaanquest-app/src/components/simulator/WhatIfSimulator.jsx)

@@ -22,9 +22,9 @@ Write-Host "✅ Sarvam Translation: Mode: $($sarvam.mode) | Lang: $($sarvam.lang
 $stt = Invoke-RestMethod -Uri 'http://localhost:5000/api/sarvam/stt' -Method Post -Body '{"languageCode":"hi-IN"}' -ContentType 'application/json'
 Write-Host "✅ Sarvam STT (Saaras v4): $($stt.transcript)" -ForegroundColor Green
 
-# 4. Paytm FinTech Link & Status
+# 4. Paytm FinTech Link & Status (STAGED/FALLBACK Mode)
 $paytm = Invoke-RestMethod -Uri 'http://localhost:5000/api/paytm/create-link' -Method Post -Body '{"amount":4850,"customerName":"Ananya Deshpande"}' -ContentType 'application/json'
-Write-Host "✅ Paytm Link: $($paytm.paymentLink) | Status: $($paytm.status)" -ForegroundColor Green
+Write-Host "✅ Paytm Link: $($paytm.paymentLink) | Status: $($paytm.status) ($($paytm.classification))" -ForegroundColor Green
 Write-Host "   UPI URI: $($paytm.upiIntentUri)" -ForegroundColor Gray
 Write-Host "   Soundbox Audio: $($paytm.soundbox.announcementText)" -ForegroundColor Gray
 

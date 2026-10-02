@@ -54,7 +54,11 @@ The health endpoint responds with real-time operational status:
     },
     "paytm": {
       "configured": true,
-      "mode": "staging-simulated",
+      "isLive": false,
+      "mode": "staged-fallback",
+      "status": "STAGED/FALLBACK",
+      "classification": "STAGED/FALLBACK (DEMO DATA)",
+      "dashboardKeyStatus": "KEY_GENERATION_UNAVAILABLE_ON_DASHBOARD",
       "mid": "PAYTM_MID_984521"
     },
     "amazon": {

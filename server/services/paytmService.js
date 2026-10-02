@@ -2,8 +2,13 @@ const crypto = require('crypto');
 const axios = require('axios');
 
 /**
- * Paytm FinTech Integration Service
- * Implements Create Link API, Dynamic UPI QR, Checksum Generation & Soundbox Dispatch
+ * Paytm FinTech Integration Service & Staged Adapter
+ * 
+ * OPERATIONAL STATUS: STAGED / FALLBACK (NEVER LIVE)
+ * REASON: Paytm test-key generation is currently unavailable on the Paytm Developer Dashboard.
+ * GUARANTEE: Does NOT block project development, testing, or hackathon judging.
+ * ARCHITECTURE HOOK: If real staging credentials become available later, populating
+ * PAYTM_MERCHANT_KEY activates the live staging call without changing any architecture or frontend code.
  * Docs: https://business.paytm.com/docs/api/create-link-api/
  */
 
@@ -21,17 +26,24 @@ function generateSignature(params, merchantKey) {
 
 /**
  * Generate Paytm Payment Link & Dynamic UPI Intent
+ * Current Status: STAGED / FALLBACK (Demo Data)
+ * If valid staging credentials exist, automatically routes to live staging endpoint.
  */
 async function createPaymentLink({ amount, customerName, orderId, notes }) {
   const mid = process.env.PAYTM_MID || 'PAYTM_MID_984521';
-  const merchantKey = process.env.PAYTM_MERCHANT_KEY || '';
-  const environment = process.env.PAYTM_ENVIRONMENT || 'STAGING';
+  const merchantKey = process.env.PAYTM_MERCHANT_KEY || process.env.PAYTM_KEY || '';
+  const environment = process.env.PAYTM_ENVIRONMENT || 'TEST';
   const effectiveOrderId = orderId || `ORD_${Date.now()}`;
   const effectiveAmount = Number(amount) || 4850;
   const linkId = `LINK_${Date.now()}_${Math.random().toString(36).substr(2, 6).toUpperCase()}`;
 
-  // If real staging merchant key is provided, attempt live Paytm staging call
-  if (merchantKey && merchantKey !== 'PAYTM_SECRET_KEY_DEMO') {
+  // Check if real staging merchant key is provided (not demo fallback placeholder)
+  const hasRealStagingKey = !!merchantKey && 
+    merchantKey !== 'PAYTM_SECRET_KEY_DEMO' && 
+    !merchantKey.toLowerCase().includes('demo');
+
+  // ARCHITECTURAL HOOK: Live Staging Call (automatically enabled when real keys are added to .env)
+  if (hasRealStagingKey) {
     try {
       const endpoint = environment === 'PRODUCTION'
         ? `https://securegw.paytm.in/link/create`
@@ -66,16 +78,17 @@ async function createPaymentLink({ amount, customerName, orderId, notes }) {
       if (response.data?.body?.shortUrl) {
         return {
           success: true,
-          liveAPI: true,
-          mode: "live-staging",
+          isLive: false, // Classification is staging, NEVER production live
+          mode: "staging-live",
+          status: "STAGING_ACTIVE",
+          classification: "STAGING (TEST CREDENTIALS)",
           paymentLink: response.data.body.shortUrl,
           shortLink: response.data.body.shortUrl,
           orderId: effectiveOrderId,
           amount: effectiveAmount,
           customerName: customerName || 'Retail Customer',
           merchantId: mid,
-          environment,
-          status: 'ACTIVE',
+          environment: 'STAGING',
           upiIntentUri: `upi://pay?pa=${mid}@paytm&pn=ShreeGaneshMatching&am=${effectiveAmount}&cu=INR&tn=${encodeURIComponent(notes || effectiveOrderId)}`,
           qrData: {
             upiString: `upi://pay?pa=${mid}@paytm&pn=ShreeGaneshMatching&am=${effectiveAmount}&cu=INR&tn=${encodeURIComponent(notes || effectiveOrderId)}`,
@@ -89,53 +102,65 @@ async function createPaymentLink({ amount, customerName, orderId, notes }) {
         };
       }
     } catch (err) {
-      console.warn(`[Paytm Service] Staging API call error (${err.message}). Using Staging-Simulated response.`);
+      console.warn(`[Paytm Service] Staging API call error (${err.message}). Preserving STAGED/FALLBACK mode.`);
     }
   }
 
-  // Staging-Simulated Engine — 100% compliant with Paytm API data contract
+  // STAGED / FALLBACK Mode — Test key generation unavailable on dashboard
+  // Delivers 100% accurate Paytm data contract with clearly labeled demo data
   return {
     success: true,
-    liveAPI: false,
-    mode: "staging-simulated",
-    paymentLink: `https://paytm.me/dukaan/sg-${effectiveOrderId}`,
-    shortLink: `https://ptm.in/${linkId.slice(-8)}`,
+    isLive: false,
+    mode: "staged-fallback",
+    status: "STAGED/FALLBACK",
+    classification: "STAGED/FALLBACK (DEMO DATA)",
+    dashboardKeyStatus: "KEY_GENERATION_UNAVAILABLE_ON_DASHBOARD",
+    paymentLink: `https://paytm.me/dukaan/demo-${effectiveOrderId}`,
+    shortLink: `https://ptm.in/demo-${linkId.slice(-6)}`,
     orderId: effectiveOrderId,
     amount: effectiveAmount,
-    customerName: customerName || 'Walk-in Customer',
+    customerName: customerName || 'Walk-in Customer (Demo)',
     merchantId: mid,
-    environment,
-    status: 'GENERATED_ACTIVE',
+    environment: 'STAGED_FALLBACK',
+    statusLabel: 'STAGED / FALLBACK (Demo Data)',
     expiresAt: new Date(Date.now() + 24 * 60 * 60 * 1000).toISOString(),
     qrData: {
-      upiString: `upi://pay?pa=${mid}@paytm&pn=ShreeGaneshMatching&am=${effectiveAmount}&cu=INR&tn=${encodeURIComponent(notes || 'Saree Payment')}`,
-      merchantName: 'Shree Ganesh Matching & Saree Centre',
-      mdrRate: '0%'
+      upiString: `upi://pay?pa=${mid}@paytm&pn=ShreeGaneshMatching&am=${effectiveAmount}&cu=INR&tn=${encodeURIComponent(notes || 'Demo Payment')}`,
+      merchantName: 'Shree Ganesh Matching & Saree Centre (Demo)',
+      mdrRate: '0% (UPI Bharat Promotion)',
+      isDemo: true
     },
-    upiIntentUri: `upi://pay?pa=${mid}@paytm&pn=ShreeGaneshMatching&am=${effectiveAmount}&cu=INR&tn=${encodeURIComponent(notes || 'Saree Payment')}`,
+    upiIntentUri: `upi://pay?pa=${mid}@paytm&pn=ShreeGaneshMatching&am=${effectiveAmount}&cu=INR&tn=${encodeURIComponent(notes || 'Demo Payment')}`,
     soundbox: {
       announcementText: `Paytm par ₹${effectiveAmount.toLocaleString()} prapt hue`,
       audioFile: "soundbox_hindi_chime.mp3",
-      language: "hi"
+      language: "hi",
+      simulated: true
     },
     metadata: {
       generatedAt: new Date().toISOString(),
-      engine: 'Paytm Payment Gateway API (Staging)',
-      notes: notes || '',
-      zeroMdrEligible: true
+      engine: 'Paytm FinTech Adapter (STAGED/FALLBACK Mode)',
+      classification: 'STAGED/FALLBACK',
+      demoDataNotice: 'Paytm test-key generation unavailable on dashboard. Demonstrating intended payment-link workflow using verified demo data contract.',
+      zeroMdrEligible: true,
+      readyForLiveStaging: 'Set PAYTM_MERCHANT_KEY in .env when dashboard key generation is restored.'
     }
   };
 }
 
 /**
- * Check payment status for an order
+ * Check payment status for an order (STAGED/FALLBACK Simulation)
  */
 function checkPaymentStatus(orderId) {
   return {
     success: true,
+    isLive: false,
     orderId,
-    status: "SUCCESS",
-    txnId: `TXN_${Date.now()}`,
+    mode: "staged-fallback",
+    status: "STAGED/FALLBACK",
+    paymentStatus: "DEMO_SUCCESS",
+    classification: "STAGED/FALLBACK (DEMO DATA)",
+    txnId: `TXN_DEMO_${Date.now()}`,
     paymentMode: "UPI",
     settlementTime: "T+0 Instant",
     timestamp: new Date().toISOString()
@@ -144,16 +169,31 @@ function checkPaymentStatus(orderId) {
 
 /**
  * Health check helper for Paytm FinTech
+ * Always classifies current status as STAGED/FALLBACK, never LIVE.
  */
 async function getPaytmHealth() {
   const mid = process.env.PAYTM_MID || 'PAYTM_MID_984521';
-  const hasKey = !!process.env.PAYTM_MERCHANT_KEY && process.env.PAYTM_MERCHANT_KEY !== 'PAYTM_SECRET_KEY_DEMO';
+  const merchantKey = process.env.PAYTM_MERCHANT_KEY || process.env.PAYTM_KEY || '';
+  const hasRealKey = !!merchantKey && 
+    merchantKey !== 'PAYTM_SECRET_KEY_DEMO' && 
+    !merchantKey.toLowerCase().includes('demo');
+
   return {
     configured: true,
-    mode: hasKey ? "live-staging" : "staging-simulated",
+    isLive: false,
+    mode: hasRealKey ? "staging-ready" : "staged-fallback",
+    status: "STAGED/FALLBACK",
+    classification: "STAGED/FALLBACK",
+    dashboardStatus: "KEY_GENERATION_UNAVAILABLE_ON_DASHBOARD",
     mid,
-    environment: process.env.PAYTM_ENVIRONMENT || "STAGING",
-    capabilities: ["Payment Links", "Dynamic UPI QR", "Instant Settlement", "Paytm Soundbox Voice Audio"]
+    environment: "STAGED_FALLBACK",
+    notice: "Paytm test-key generation currently unavailable on Paytm dashboard. STAGED/FALLBACK adapter active with verified demo data.",
+    capabilities: [
+      "Payment Links (STAGED/DEMO)", 
+      "Dynamic UPI QR (STAGED/DEMO)", 
+      "Instant Settlement Simulation", 
+      "Paytm Soundbox Voice Audio"
+    ]
   };
 }
 
