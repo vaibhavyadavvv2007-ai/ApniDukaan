@@ -2,16 +2,33 @@ const express = require('express');
 const cors = require('cors');
 const multer = require('multer');
 const path = require('path');
-require('dotenv').config();
+
+// ── Explicit dotenv path resolution ─────────────────────────────
+// Resolves from this file's directory, not from process.cwd().
+// This is the root cause fix for GEMINI/SARVAM keys loading as empty.
+const dotenvResult = require('dotenv').config({ path: path.resolve(__dirname, '.env') });
+if (dotenvResult.error) {
+  console.warn('[dotenv] Failed to load .env:', dotenvResult.error.message);
+} else {
+  const loadedKeys = Object.keys(dotenvResult.parsed || {});
+  console.log(`[dotenv] Loaded ${loadedKeys.length} vars from ${path.resolve(__dirname, '.env')}`);
+  // Warn about empty critical keys
+  ['GEMINI_API_KEY', 'SARVAM_API_KEY'].forEach(k => {
+    if (loadedKeys.includes(k) && !dotenvResult.parsed[k]) {
+      console.warn(`[dotenv] ⚠ ${k} is present but EMPTY — service will run in fallback mode`);
+    }
+  });
+}
 
 const { loadDB, saveDB } = require('./db/database');
-const { analyzeAndEnhanceImage, getGeminiHealth } = require('./services/geminiService');
+const { analyzeAndEnhanceImage, extractCatalogAttributes, generateOrTransformProductImage, getGeminiHealth } = require('./services/geminiService');
 const { translateIndicText, transcribeSpeech, synthesizeSpeech, getSarvamHealth } = require('./services/sarvamService');
 const { dispatchN8NWebhook, getN8NWorkflowDefinition, getN8NHealth, getWhatsAppTemplateConfig } = require('./services/n8nService');
 const { createPaymentLink, checkPaymentStatus, getPaytmHealth } = require('./services/paytmService');
 const { scrapeMarketplaceSpecs } = require('./services/scraperService');
 const { transformMasterProduct } = require('./services/marketplaceAdapters');
 const { verifySandboxCredentials, getAmazonHealth } = require('./services/amazonService');
+const { searchProductTypes, getProductTypeDefinition, putListingsItem, buildListingsPayload } = require('./services/amazonListingsService');
 
 const app = express();
 const PORT = process.env.PORT || 5000;
@@ -28,6 +45,8 @@ const upload = multer({
 
 // ==========================================
 // 1. HEALTH & COMPREHENSIVE STATUS CONTRACT
+//    Classification Tiers: LIVE | SANDBOX | STAGED | FALLBACK
+//    Rule: Suite is NEVER labeled "verified" when any service is FALLBACK.
 // ==========================================
 app.get('/api/health', async (req, res) => {
   const gemini = await getGeminiHealth();
@@ -36,45 +55,102 @@ app.get('/api/health', async (req, res) => {
   const paytm = await getPaytmHealth();
   const amazon = await getAmazonHealth();
 
+  // ── Per-service classification ────────────────────────────
+  const geminiClassification = gemini.isLive ? 'LIVE' : 'FALLBACK';
+  const sarvamClassification = sarvam.isLive ? 'LIVE' : 'FALLBACK';
+  const n8nClassification = n8n.isLive ? 'LIVE' : 'FALLBACK';
+  const whatsappConfigured = !!process.env.WHATSAPP_ACCESS_TOKEN;
+  const whatsappClassification = whatsappConfigured ? 'LIVE' : 'STAGED';
+  const paytmClassification = 'FALLBACK'; // Never LIVE per user directive
+  const amazonClassification = amazon.configured ? 'SANDBOX' : 'FALLBACK';
+  // Photo Studio image generation: only LIVE if image model returns actual images (not quota-limited)
+  const imageModelStatus = gemini.models?.imageModel?.status;
+  const photoStudioClassification = imageModelStatus === 'LIVE_VERIFIED' ? 'LIVE' : 'STAGED';
+  const flipkartClassification = 'STAGED';
+  const meeshoClassification = 'STAGED';
+  const myntraClassification = 'STAGED';
+  const nykaaClassification = 'STAGED';
+
+  // ── Integration summary tally ─────────────────────────────
+  const allClassifications = [
+    geminiClassification, sarvamClassification, n8nClassification,
+    whatsappClassification, paytmClassification, amazonClassification,
+    photoStudioClassification, flipkartClassification, meeshoClassification, myntraClassification, nykaaClassification
+  ];
+  const tally = { LIVE: 0, SANDBOX: 0, STAGED: 0, FALLBACK: 0 };
+  allClassifications.forEach(c => tally[c]++);
+  const hasFallback = tally.FALLBACK > 0;
+  const overallStatus = hasFallback
+    ? `PARTIAL (${tally.LIVE} LIVE, ${tally.SANDBOX} SANDBOX, ${tally.STAGED} STAGED, ${tally.FALLBACK} FALLBACK)`
+    : `ALL_OPERATIONAL (${tally.LIVE} LIVE, ${tally.SANDBOX} SANDBOX, ${tally.STAGED} STAGED)`;
+
   res.json({
-    overall: "operational",
-    app: "DukaanQuest Backend Copilot API",
-    version: "1.0.0",
+    overall: hasFallback ? 'partial' : 'operational',
+    overallStatus,
+    app: 'DukaanQuest Backend Copilot API',
+    version: '2.0.0',
     timestamp: new Date().toISOString(),
+    integrationSummary: {
+      totalServices: allClassifications.length,
+      ...tally,
+      notice: hasFallback
+        ? 'Some services are in FALLBACK mode. Check verificationDetail for each.'
+        : 'All services are operational (LIVE, SANDBOX, or STAGED).'
+    },
     services: {
       gemini: {
+        classification: geminiClassification,
         configured: gemini.configured,
+        isLive: gemini.isLive,
         mode: gemini.mode,
-        model: gemini.model,
-        latencyMs: 14
+        models: gemini.models,
+        textModel: gemini.models?.textModel,
+        imageModel: gemini.models?.imageModel,
+        verificationStatus: gemini.verificationStatus,
+        verificationDetail: gemini.verificationDetail,
+        lastVerified: gemini.lastVerified
       },
       sarvam: {
+        classification: sarvamClassification,
         configured: sarvam.configured,
+        isLive: sarvam.isLive,
         mode: sarvam.mode,
         models: sarvam.models,
-        supportedLanguages: sarvam.supportedLanguages
+        supportedLanguages: sarvam.supportedLanguages,
+        verificationStatus: sarvam.verificationStatus,
+        verificationDetail: sarvam.verificationDetail,
+        lastVerified: sarvam.lastVerified
       },
       n8n: {
+        classification: n8nClassification,
         configured: n8n.configured,
+        isLive: n8n.isLive,
         mode: n8n.mode,
-        endpoint: n8n.endpoint
+        endpoint: n8n.endpoint,
+        verificationStatus: n8n.verificationStatus,
+        verificationDetail: n8n.verificationDetail
       },
       whatsapp: {
-        configured: !!process.env.WHATSAPP_ACCESS_TOKEN,
-        mode: process.env.WHATSAPP_ACCESS_TOKEN ? "live" : "staged-payload"
+        classification: whatsappClassification,
+        configured: whatsappConfigured,
+        mode: whatsappConfigured ? 'live' : 'staged-payload',
+        activeTemplate: n8n.whatsappTemplate?.activeTemplate,
+        templateStatus: n8n.whatsappTemplate?.status,
+        metaReviewStatus: n8n.whatsappTemplate?.metaReviewStatus
       },
       paytm: {
+        classification: paytmClassification,
         configured: paytm.configured,
         isLive: false,
         mode: paytm.mode,
         status: paytm.status,
-        classification: paytm.classification,
         dashboardStatus: paytm.dashboardStatus,
         mid: paytm.mid,
         environment: paytm.environment,
         notice: paytm.notice
       },
       amazon: {
+        classification: amazonClassification,
         configured: amazon.configured,
         isLive: false,
         mode: amazon.mode,
@@ -82,29 +158,63 @@ app.get('/api/health', async (req, res) => {
         sandboxHost: amazon.sandboxHost,
         authMechanism: amazon.authMechanism,
         maskedClientId: amazon.maskedClientId,
-        productionRestricted: true
+        productionRestricted: true,
+        listingsPocAvailable: true
+      },
+      photoStudio: {
+        classification: photoStudioClassification,
+        model: gemini.models?.imageModel?.id,
+        imageModelStatus: gemini.models?.imageModel?.status,
+        isAIGenerated: photoStudioClassification === 'LIVE',
+        mode: photoStudioClassification === 'LIVE' ? 'live-ai-generation' : 'staged-catalog-asset',
+        detail: photoStudioClassification === 'LIVE'
+          ? 'Live AI-generated hero images via Gemini Image model'
+          : 'Staged high-res catalog assets shown. Enable Google Cloud pay-as-you-go billing for live AI image generation.',
+        quotaNote: photoStudioClassification !== 'LIVE'
+          ? 'Image model endpoint is reachable and authenticated. Free-tier quota is 0 for image generation models. Once billing is enabled, this service will upgrade to LIVE.'
+          : null
       },
       flipkart: {
+        classification: flipkartClassification,
         configured: !!process.env.FLIPKART_CLIENT_ID,
-        mode: "staged-ready",
-        standard: "Flipkart FMS v3"
+        mode: 'staged-ready',
+        standard: 'Flipkart FMS v3'
       },
       meesho: {
+        classification: meeshoClassification,
         configured: true,
-        mode: "upload-ready",
-        standard: "Supplier Panel Flatfile CSV (No public REST API exists)"
+        mode: 'upload-ready',
+        standard: 'Supplier Panel Flatfile CSV (No public REST API exists)'
       },
       myntra: {
+        classification: myntraClassification,
         configured: false,
-        mode: "partner-onboarding-staged",
-        standard: "MMIP Partner Catalog"
+        mode: 'partner-onboarding-staged',
+        standard: 'MMIP Partner Catalog'
       },
       nykaa: {
+        classification: nykaaClassification,
         configured: false,
-        mode: "eligibility-workflow",
-        standard: "Brand Curation Dossier"
+        mode: 'eligibility-workflow',
+        standard: 'Brand Curation Dossier'
       }
     }
+  });
+});
+
+// Endpoint to dynamically reload environment variables from server/.env
+app.post('/api/reload-env', (req, res) => {
+  const result = require('dotenv').config({ path: path.resolve(__dirname, '.env'), override: true });
+  const geminiConfigured = !!process.env.GEMINI_API_KEY;
+  const sarvamConfigured = !!process.env.SARVAM_API_KEY;
+  res.json({
+    success: !result.error,
+    reloadedFrom: path.resolve(__dirname, '.env'),
+    geminiKeyConfigured: geminiConfigured,
+    sarvamKeyConfigured: sarvamConfigured,
+    notice: geminiConfigured && sarvamConfigured 
+      ? 'Keys loaded successfully into live process environment.' 
+      : 'Keys are still empty or missing in server/.env on disk.'
   });
 });
 
@@ -173,6 +283,50 @@ app.get('/api/amazon/verify-sandbox', async (req, res) => {
 });
 
 // ==========================================
+// 3C. AMAZON SP-API LISTINGS POC
+//     Product Type Definitions → Required Attributes → Listings Items
+//     Falls back to export-ready JSON when sandbox write is unsupported.
+// ==========================================
+app.get('/api/amazon/product-types', async (req, res) => {
+  const { keywords } = req.query;
+  const result = await searchProductTypes({ keywords: keywords || 'SAREE' });
+  res.json(result);
+});
+
+app.get('/api/amazon/product-type-definition', async (req, res) => {
+  const { productType } = req.query;
+  const result = await getProductTypeDefinition({ productType: productType || 'SAREE' });
+  res.json(result);
+});
+
+app.post('/api/amazon/listings/put', async (req, res) => {
+  const { masterProduct, sellerId, sku } = req.body;
+  const result = await putListingsItem({
+    masterProduct: masterProduct || {},
+    sellerId: sellerId || 'SANDBOX_SELLER_ID',
+    sku
+  });
+  res.json(result);
+});
+
+app.post('/api/amazon/listings/export', (req, res) => {
+  const { masterProduct } = req.body;
+  const payload = buildListingsPayload(masterProduct || {});
+  res.json({
+    success: true,
+    mode: 'export',
+    source: 'DukaanQuest Listings Export Engine',
+    format: 'JSON_LISTINGS_FEED',
+    exportReadyPayload: payload,
+    uploadInstructions: {
+      method: 'Seller Central → Inventory → Add a Product via Upload',
+      format: 'JSON Listings Feed',
+      marketplace: 'Amazon.in (A21TJRUUN4KGV)'
+    }
+  });
+});
+
+// ==========================================
 // 4. PHYSICAL READINESS & SCRAPER
 // ==========================================
 app.get('/api/readiness', (req, res) => {
@@ -226,6 +380,30 @@ app.post('/api/studio/enhance', async (req, res) => {
   const result = await analyzeAndEnhanceImage({
     imageBase64: imageBase64 || '',
     productContext: productContext || 'Kanjeevaram Saree'
+  });
+  res.json(result);
+});
+
+// Dedicated Path 1: Text & Catalog Attributes (using Flash-Lite)
+app.post('/api/studio/extract-attributes', async (req, res) => {
+  const { imageBase64, mimeType, productContext } = req.body;
+  const result = await extractCatalogAttributes({
+    imageBase64: imageBase64 || '',
+    mimeType: mimeType || 'image/jpeg',
+    productContext: productContext || 'Kanjeevaram Silk Saree'
+  });
+  res.json(result);
+});
+
+// Dedicated Path 2: Photo Studio Hero Image Generation & Editing (using Flash-Image)
+app.post('/api/studio/generate-image', async (req, res) => {
+  const { imageBase64, mimeType, prompt, transformationType, productContext } = req.body;
+  const result = await generateOrTransformProductImage({
+    imageBase64: imageBase64 || '',
+    mimeType: mimeType || 'image/jpeg',
+    prompt: prompt || '',
+    transformationType: transformationType || 'whiteBackground',
+    productContext: productContext || 'Kanjeevaram Silk Saree'
   });
   res.json(result);
 });

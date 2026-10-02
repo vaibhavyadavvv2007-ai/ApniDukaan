@@ -79,6 +79,24 @@ export async function uploadAndEnhanceImage(formData) {
   return await res.json();
 }
 
+export async function generateImageWithGemini({ imageBase64, prompt, transformationType, productContext }) {
+  const res = await fetch(`${BASE_URL}/studio/generate-image`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ imageBase64, prompt, transformationType, productContext })
+  });
+  return await res.json();
+}
+
+export async function extractProductAttributesWithGemini({ imageBase64, productContext }) {
+  const res = await fetch(`${BASE_URL}/studio/extract-attributes`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ imageBase64, productContext })
+  });
+  return await res.json();
+}
+
 export async function fetchCustomers() {
   const res = await fetch(`${BASE_URL}/crm/customers`);
   return await res.json();
@@ -145,3 +163,30 @@ export async function verifyAmazonSandbox() {
   return await res.json();
 }
 
+export async function fetchAmazonProductTypes(keywords = 'SAREE') {
+  const res = await fetch(`${BASE_URL}/amazon/product-types?keywords=${encodeURIComponent(keywords)}`);
+  return await res.json();
+}
+
+export async function fetchAmazonProductTypeDefinition(productType = 'SAREE') {
+  const res = await fetch(`${BASE_URL}/amazon/product-type-definition?productType=${encodeURIComponent(productType)}`);
+  return await res.json();
+}
+
+export async function submitAmazonListing(masterProduct, sellerId = 'SANDBOX_SELLER_ID', sku = null) {
+  const res = await fetch(`${BASE_URL}/amazon/listings/put`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ masterProduct, sellerId, sku })
+  });
+  return await res.json();
+}
+
+export async function exportAmazonListing(masterProduct) {
+  const res = await fetch(`${BASE_URL}/amazon/listings/export`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ masterProduct })
+  });
+  return await res.json();
+}

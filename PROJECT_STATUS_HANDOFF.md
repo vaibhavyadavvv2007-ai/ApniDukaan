@@ -1,7 +1,7 @@
 # 📜 DukaanQuest — Comprehensive Project Status & Engineering Handoff
 
 > **HackSprint 2026 | Problem Statement PS-21: Democratizing Digital Commerce for Bharat Retailers**  
-> **Last Updated:** 2026-10-02 12:00 IST  
+> **Last Updated:** 2026-10-02 20:37 IST  
 > **Repository:** [https://github.com/vaibhavyadavvv2007-ai/dukaan.git](https://github.com/vaibhavyadavvv2007-ai/dukaan.git)  
 > **Target Submission Deadline:** 2026-10-04 23:59 IST  
 > **Screening Evaluation Date:** 2026-10-05 23:50 IST  
@@ -19,7 +19,7 @@ Traditional Indian mom-and-pop retailers ("Mohalla Kiranas & Dukaans") struggle 
 
 **DukaanQuest** solves this as a **gamified copilot** ("From Mohalla Merchant to Digital Vyapari") that combines:
 - **Marketplace Documentation Web Scraping** for physical packaging compliance.
-- **Google Gemini Pro Vision AI** for instant #FFFFFF studio transformation and compliance auditing.
+- **Google Gemini Dual-Model AI** — `gemini-3.1-flash-lite` for text/catalog attributes (LIVE) and `gemini-3.1-flash-image` for hero image generation (STAGED until billing enabled).
 - **Sarvam AI Indic Language Engine** for real-time Hindi, Kannada, Tamil, and English translation.
 - **n8n Workflow Automation** for WhatsApp campaign broadcasting with Human-in-the-Loop merchant control.
 - **Paytm FinTech Integration** for dynamic UPI payment links, QR codes, and simulated Soundbox voice announcements.
@@ -91,18 +91,26 @@ Traditional Indian mom-and-pop retailers ("Mohalla Kiranas & Dukaans") struggle 
 ### 3.1. Centralized Express Backend (`server/`)
 - **Server Entry:** [server/index.js](file:///c:/Users/yadav/OneDrive/Desktop/hacksprint/server/index.js)
   - Listens on port `5000` (or `process.env.PORT`).
-  - Supports file uploads up to 10MB via Multer.
+  - Supports file uploads up to 25MB via Multer.
   - Endpoints implemented:
-    - `GET /api/health` — Returns status and health status of all 4 sponsors (Gemini, Sarvam, n8n, Paytm).
+    - `GET /api/health` — 4-tier (LIVE/SANDBOX/STAGED/FALLBACK) classification for all 11 services.
+    - `POST /api/reload-env` — Dynamically reload environment variables without restart.
     - `GET /api/shop` & `PUT /api/shop/xp` — Merchant profile and XP progression tracker.
     - `GET /api/products` & `POST /api/products` — Product catalog management.
+    - `GET /api/catalog/transform/:productId` — Omnichannel 5-platform adapter transform.
     - `GET /api/readiness` & `POST /api/readiness/toggle` — Platform physical checklist state.
     - `GET /api/readiness/scrape?platform=...&category=...` — Live marketplace guidelines scraper.
-    - `POST /api/studio/upload` & `POST /api/studio/enhance` — Gemini multimodal vision processing.
-    - `GET /api/crm/customers` & `POST /api/crm/broadcast` — Customer list & n8n webhook campaign trigger.
-    - `GET /api/crm/n8n-workflow` — Full visual workflow JSON definition.
-    - `POST /api/sarvam/translate` — Real-time Indic translation.
-    - `POST /api/paytm/create-link` — Dynamic Paytm payment link and UPI QR creation.
+    - `POST /api/studio/upload` & `POST /api/studio/enhance` — Combined text + image Photo Studio.
+    - `POST /api/studio/extract-attributes` — Dedicated text/catalog attribute extraction (Flash-Lite).
+    - `POST /api/studio/generate-image` — Dedicated hero image generation (Flash-Image).
+    - `GET /api/amazon/verify-sandbox` — SP-API sandbox LWA OAuth2 verification.
+    - `GET /api/amazon/product-types` & `GET /api/amazon/product-type-definition` — Listings POC.
+    - `POST /api/amazon/listings/put` & `POST /api/amazon/listings/export` — Listings feed.
+    - `GET /api/crm/customers` & `POST /api/crm/broadcast` — Customer list & n8n webhook campaign.
+    - `GET /api/crm/n8n-workflow` & `GET /api/crm/template-status` — Workflow definition & template.
+    - `POST /api/sarvam/translate` — Real-time Indic translation (mayura:v1 LIVE).
+    - `POST /api/sarvam/stt` & `POST /api/sarvam/tts` — Speech-to-Text & Text-to-Speech.
+    - `POST /api/paytm/create-link` & `GET /api/paytm/status/:orderId` — Payment links & status.
     - `GET /api/quests` & `POST /api/quests/complete` — Gamified quest completion.
 
 ### 3.2. Physical Readiness & Packaging Documentation Scraper
@@ -114,15 +122,20 @@ Traditional Indian mom-and-pop retailers ("Mohalla Kiranas & Dukaans") struggle 
   - Interactive checklist with XP rewards (+50 XP to +75 XP) and confetti upon completion.
   - **Printable Modal:** One-click print-ready packaging checklist specifying polybag micron thickness, FNSKU barcode dimensions, and carton H-tape sealing.
 
-### 3.3. Google Gemini Vision Photo Studio
+### 3.3. Google Gemini Dual-Model Photo Studio
 - **Backend Service:** [server/services/geminiService.js](file:///c:/Users/yadav/OneDrive/Desktop/hacksprint/server/services/geminiService.js)
 - **Frontend Component:** [dukaanquest-app/src/components/studio/GeminiPhotoStudio.jsx](file:///c:/Users/yadav/OneDrive/Desktop/hacksprint/dukaanquest-app/src/components/studio/GeminiPhotoStudio.jsx)
+- **Dual-Model Architecture (Two Independent Paths):**
+  - **Path A — Text & Catalog Attributes (LIVE):** Uses `gemini-3.1-flash-lite` for SEO titles, Amazon bullets, compliance scores. Verified live with HTTP 200, 2.8–5.8s latency.
+  - **Path B — Hero Image Generation (STAGED):** Uses `gemini-3.1-flash-image` for AI-generated studio photos. Currently HTTP 429 (free-tier quota is 0). Shows staged high-res catalog assets with clear labeling. **Never fakes AI-generated images.** Enable Google Cloud pay-as-you-go billing to upgrade to LIVE.
+  - Model IDs configurable via `GEMINI_TEXT_MODEL` and `GEMINI_IMAGE_MODEL` env vars.
+- **Photo Studio LIVE vs STAGED Contract:** The `/api/studio/enhance` endpoint returns `pathStatuses` with explicit `status`, `isAIGenerated`, and `quotaNote` fields so consumers always know which path is live vs staged.
 - **Functionality:**
   - Accepts image file upload or camera photo.
   - Analyzes fabric texture, color fidelity, and background interference.
   - Synthesizes studio #FFFFFF lighting and isolates subject.
   - Interactive **Before/After Split Slider** (0–100% draggable).
-  - Calculates **Marketplace Compliance Score (e.g. 94%)** with instant AI recommendations.
+  - Calculates **Marketplace Compliance Score (e.g. 92%)** with instant AI recommendations.
   - Prepares 4 channel-specific visual assets:
     1. Amazon Main Hero (1:1 square, 2000×2000, pure white background).
     2. Myntra Lifestyle Editorial (3:4 portrait, warm soft lighting).
@@ -177,15 +190,17 @@ Traditional Indian mom-and-pop retailers ("Mohalla Kiranas & Dukaans") struggle 
 ### 3.8. Omnichannel Catalog & Amazon SP-API Sandbox
 - **Backend Services:** 
   - [server/services/amazonService.js](file:///c:/Users/yadav/OneDrive/Desktop/hacksprint/server/services/amazonService.js) (LWA Token Exchange & SP-API Sandbox Client)
+  - [server/services/amazonListingsService.js](file:///c:/Users/yadav/OneDrive/Desktop/hacksprint/server/services/amazonListingsService.js) (Product Type Definitions → Required Attributes → Listings Items POC)
   - [server/services/marketplaceAdapters.js](file:///c:/Users/yadav/OneDrive/Desktop/hacksprint/server/services/marketplaceAdapters.js) (5-Engine Marketplace Transformation)
 - **Frontend Component:** [dukaanquest-app/src/components/catalog/OmnichannelCatalog.jsx](file:///c:/Users/yadav/OneDrive/Desktop/hacksprint/dukaanquest-app/src/components/catalog/OmnichannelCatalog.jsx)
 - **Amazon SP-API Sandbox Integration Status: VERIFIED (HTTP 200 OK)**
   - **LWA Token Exchange:** Automates documented Login with Amazon (LWA) OAuth2 refresh token exchange against `https://api.amazon.com/auth/o2/token` with in-memory caching.
   - **Authenticated Sandbox GET:** Executes authenticated `GET /sellers/v1/marketplaceParticipations` against EU/India sandbox host (`https://sandbox.sellingpartnerapi-eu.amazon.com`) with `x-amz-access-token`.
+  - **Listings POC:** Product Type Definitions search, required attribute extraction, and JSON Listings Feed export.
   - **Security & Zero Exposure:** Credential values are strictly masked in all responses, logs, and UI (`amzn1.ap...19e1`).
   - **Production Safeguards:** Production seller authorization and live listing publishing are safely disarmed (`productionPublishingBlocked: true`).
   - **Resilient Fallback:** Offline/error fallback mode is preserved if credentials fail or network times out.
-  - **Interactive Verification UI:** Live testing button in catalog allows judges to execute the SP-API sandbox roundtrip in real time (~660ms).
+  - **Interactive Verification UI:** Live testing button in catalog allows judges to execute the SP-API sandbox roundtrip in real time (~1,500ms).
 - **Other Marketplace Adapters:**
   - **Flipkart FMS v3:** Staged ready schema generation.
   - **Meesho:** Upload-ready Supplier Panel bulk CSV generation (no public API exists).
@@ -222,10 +237,13 @@ c:\Users\yadav\OneDrive\Desktop\hacksprint\
 │   │   ├── database.js                  # Atomic JSON read/write persistence helper
 │   │   └── database.json                # Persistent state (shop, products, rules, CRM, quests)
 │   └── services/
-│       ├── geminiService.js             # Multimodal vision & compliance auditor
-│       ├── sarvamService.js             # Indic translation engine
-│       ├── n8nService.js                # n8n webhook dispatcher & workflow definition
+│       ├── geminiService.js             # Dual-model: Flash-Lite (text) + Flash-Image (photo studio)
+│       ├── sarvamService.js             # Indic translation, STT, TTS engine (mayura:v1)
+│       ├── n8nService.js                # n8n webhook dispatcher & Meta WhatsApp Cloud API
 │       ├── paytmService.js              # Payment link, UPI intent & QR generator
+│       ├── amazonListingsService.js     # SP-API Listings Items POC & Product Type Definitions
+│       ├── amazonService.js             # LWA OAuth2 token exchange & sandbox verification
+│       ├── marketplaceAdapters.js       # 5-platform omnichannel catalog transformer
 │       └── scraperService.js            # Marketplace packaging documentation scraper
 │
 └── dukaanquest-app/                     # React 19 + Vite Frontend
@@ -290,14 +308,16 @@ Run the included test script to verify all sponsor microservices:
 cd c:\Users\yadav\OneDrive\Desktop\hacksprint
 powershell -ExecutionPolicy Bypass -File .\server\test_api.ps1
 ```
-**Expected Output:**
+**Expected Output (4-Tier Classification):**
 ```text
-✅ Gemini Title: SHREE GANESH Women's Kanjeevaram Pure Silk Saree with Blouse Piece (Maroon Gold)
-✅ Gemini Score: 94%
-✅ Sarvam Translation: (Hindi/Vernacular translated text returned)
-✅ Paytm Link: https://paytm.me/dukaan/sg-...
-✅ UPI Intent: upi://pay?pa=PAYTM_MID_984521@paytm...
-✅ Amazon Scraped Rules: 4 specifications verified
+[OK] Text Path (Flash-Lite): LIVE VERIFIED (HTTP 200) | Latency: ~3000ms
+[..] Photo Studio Hero: STAGED (Model reachable, billing required)
+[OK] Sarvam Translation: LIVE VERIFIED (HTTP 200) | Lang: hi
+[..] Paytm Status: STAGED/FALLBACK (DEMO DATA)
+[OK] Amazon SP-API: SANDBOX VERIFIED (HTTP 200)
+[OK] Meta WhatsApp Broadcast: LIVE VERIFIED (wamid returned)
+[OK] Omnichannel Adapters: Amazon | Flipkart | Meesho | Myntra
+Tally: 3 LIVE | 1 SANDBOX | 6 STAGED | 1 FALLBACK
 ```
 
 ### 5.3. Verifying Production Build
@@ -332,8 +352,10 @@ Here is the exact task punch list for incoming agents or developers to take the 
   - 2:30–3:00: Closing, Sponsor shoutouts & Future Vision
 
 ### Priority 2: Technical Polish & Enhancements
-- [ ] **Live API Keys Injection (Optional):** If real keys for Gemini Pro (`GEMINI_API_KEY`) or Sarvam AI (`SARVAM_API_KEY`) are available, add them to `server/.env`. (Note: The intelligent fallback engine is already 100% operational for seamless offline/local demos).
-- [ ] **Live n8n Local Instance (Optional):** If the user wants to demo the live n8n workflow editor during the presentation, launch n8n locally (`npx n8n start` on port 5678) and point webhook to `http://localhost:5678/webhook/dukaanquest-crm`.
+- [x] **Live API Keys Configured:** Gemini (`GEMINI_API_KEY`, length 53) and Sarvam (`SARVAM_API_KEY`, length 36) are loaded and verified LIVE.
+- [x] **Live n8n Instance Running:** n8n automation engine running on port 5678, Meta WhatsApp Cloud API delivering messages with verified `wamid` proof.
+- [ ] **Gemini Image Billing (Optional):** Enable Google Cloud pay-as-you-go billing to upgrade Photo Studio from STAGED to LIVE AI-generated images. No code changes required.
+- [ ] **Custom WhatsApp Template (Pending):** `dukaanquest_new_arrival` is submitted to Meta for approval. Once approved, set `WHATSAPP_TEMPLATE_NAME=dukaanquest_new_arrival` in `.env`.
 - [ ] **Mobile Responsiveness Polish:** Audit and refine smaller screen drawer layouts (<480px width) for mobile viewing.
 - [ ] **Speech-to-Text (STT) Audio Input:** Add a microphone icon in the search/catalog bar using Web Speech API or Sarvam STT to allow voice search in Hindi/Tamil.
 

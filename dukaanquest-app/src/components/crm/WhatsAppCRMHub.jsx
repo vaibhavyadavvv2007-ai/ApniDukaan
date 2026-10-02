@@ -24,7 +24,8 @@ export default function WhatsAppCRMHub({
   customers, 
   onDispatchCampaign, 
   currentLanguage, 
-  t 
+  t,
+  onNavigateToSimulator
 }) {
   const [selectedTag, setSelectedTag] = useState('All');
   const [campaignTitle, setCampaignTitle] = useState('Festive Kanjeevaram Saree Launch');
@@ -158,6 +159,7 @@ export default function WhatsAppCRMHub({
             <span className="badge badge-emerald" style={{ fontSize: '0.65rem', display: 'flex', alignItems: 'center', gap: '4px' }}>
               <Smartphone size={11} /> Meta Cloud API: {templateConfig.activeTemplate} ({templateConfig.language})
             </span>
+            <span className="badge badge-brand" style={{ fontSize: '0.65rem' }}>Golden Flow Step 3 of 5</span>
           </div>
           <p style={{ color: 'var(--text-secondary)', fontSize: '0.9rem', maxWidth: '680px' }}>
             {t.crmSubtitle}
@@ -397,6 +399,25 @@ export default function WhatsAppCRMHub({
                   <span className="badge badge-emerald" style={{ fontSize: '0.65rem' }}>Template: {templateConfig.activeTemplate}</span>
                   <span className="badge badge-brand" style={{ fontSize: '0.65rem' }}>Delivery: 100%</span>
                   <span className="badge badge-amber" style={{ fontSize: '0.65rem' }}>Mode: {dispatchResult.mode || 'live-n8n-webhook'}</span>
+                  {dispatchResult.whatsappMessageId && (
+                    <span className="badge badge-emerald" style={{ fontSize: '0.65rem' }}>
+                      wamid: {dispatchResult.whatsappMessageId}
+                    </span>
+                  )}
+                </div>
+              )}
+
+              {/* Golden Flow Next Step Button */}
+              {onNavigateToSimulator && (
+                <div style={{ marginTop: '10px', display: 'flex', justifyContent: 'flex-end' }}>
+                  <button
+                    onClick={onNavigateToSimulator}
+                    className="btn btn-primary"
+                    style={{ display: 'flex', alignItems: 'center', gap: '8px', fontSize: '0.85rem' }}
+                  >
+                    <span>Golden Flow Step 4: Calculate Campaign Margins & ROI in What-If Simulator</span>
+                    <ArrowRight size={16} />
+                  </button>
                 </div>
               )}
             </div>

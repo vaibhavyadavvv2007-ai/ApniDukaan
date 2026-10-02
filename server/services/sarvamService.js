@@ -2,8 +2,17 @@ const axios = require('axios');
 
 /**
  * Sarvam AI Regional Indic Language Engine
- * Supports Translation, Speech-to-Text (Saaras v4), and Text-to-Speech (Bulbul v3)
+ * ─────────────────────────────────────────
+ * Models (verified Oct 2026):
+ *   Translation: mayura:v1
+ *   STT: saaras:v4
+ *   TTS: bulbul:v3
+ *
+ * Supports 22 Indian languages for DukaanQuest CRM & Catalog.
  */
+
+const SARVAM_BASE_URL = 'https://api.sarvam.ai';
+
 async function translateIndicText({ text, targetLanguage = 'hi' }) {
   const apiKey = process.env.SARVAM_API_KEY;
   const startTime = Date.now();
@@ -22,7 +31,7 @@ async function translateIndicText({ text, targetLanguage = 'hi' }) {
   if (apiKey) {
     try {
       const response = await axios.post(
-        'https://api.sarvam.ai/translate',
+        `${SARVAM_BASE_URL}/translate`,
         {
           input: text,
           source_language_code: "en-IN",
@@ -104,7 +113,7 @@ async function transcribeSpeech({ audioBase64, languageCode = 'hi-IN' }) {
   if (apiKey && audioBase64) {
     try {
       const response = await axios.post(
-        'https://api.sarvam.ai/speech-to-text',
+        `${SARVAM_BASE_URL}/speech-to-text`,
         {
           file: audioBase64,
           model: "saaras:v4",
@@ -150,7 +159,7 @@ async function synthesizeSpeech({ text, targetLanguage = 'hi' }) {
   if (apiKey) {
     try {
       const response = await axios.post(
-        'https://api.sarvam.ai/text-to-speech',
+        `${SARVAM_BASE_URL}/text-to-speech`,
         {
           inputs: [text],
           target_language_code: `${targetLanguage}-IN`,
@@ -188,20 +197,70 @@ async function synthesizeSpeech({ text, targetLanguage = 'hi' }) {
 }
 
 /**
- * Health check helper for Sarvam AI
+ * Health check with REAL live API verification.
+ * Makes a lightweight translate probe to verify the API key actually works.
+ * Returns unambiguous isLive boolean — never conflates fallback with live.
  */
 async function getSarvamHealth() {
-  const configured = !!process.env.SARVAM_API_KEY;
-  return {
+  const apiKey = process.env.SARVAM_API_KEY;
+  const configured = !!apiKey;
+
+  const health = {
     configured,
-    mode: configured ? "live" : "offline-fallback",
+    isLive: false,
+    mode: "offline-fallback",
     models: {
       translation: "mayura:v1",
       stt: "saaras:v4",
       tts: "bulbul:v3"
     },
-    supportedLanguages: ["en", "hi", "kn", "ta", "te", "mr"]
+    supportedLanguages: ["en", "hi", "kn", "ta", "te", "mr"],
+    verificationStatus: "NOT_VERIFIED",
+    verificationDetail: null,
+    lastVerified: null
   };
+
+  if (!apiKey) {
+    health.verificationDetail = "SARVAM_API_KEY is empty or missing in .env";
+    return health;
+  }
+
+  // Attempt a lightweight live translation probe
+  try {
+    const response = await axios.post(
+      `${SARVAM_BASE_URL}/translate`,
+      {
+        input: "Hello",
+        source_language_code: "en-IN",
+        target_language_code: "hi-IN",
+        mode: "formal",
+        model: "mayura:v1"
+      },
+      {
+        headers: {
+          'api-subscription-key': apiKey,
+          'Content-Type': 'application/json'
+        },
+        timeout: 8000
+      }
+    );
+
+    if (response.data?.translated_text) {
+      health.isLive = true;
+      health.mode = "live";
+      health.verificationStatus = "LIVE_VERIFIED";
+      health.verificationDetail = `Translate probe returned: "${response.data.translated_text}"`;
+      health.lastVerified = new Date().toISOString();
+    } else {
+      health.verificationStatus = "API_REACHABLE_NO_RESPONSE";
+      health.verificationDetail = "API responded but no translated_text returned";
+    }
+  } catch (err) {
+    health.verificationStatus = "LIVE_VERIFICATION_FAILED";
+    health.verificationDetail = `API probe error: ${err.response?.status || ''} ${err.message}`.trim();
+  }
+
+  return health;
 }
 
 module.exports = {

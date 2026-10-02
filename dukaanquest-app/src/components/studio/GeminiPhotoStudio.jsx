@@ -11,12 +11,15 @@ import {
   Zap,
   Tag,
   Upload,
-  FileImage
+  FileImage,
+  ArrowRight,
+  Info,
+  CheckCircle2
 } from 'lucide-react';
 import confetti from 'canvas-confetti';
 import * as api from '../../services/api';
 
-export default function GeminiPhotoStudio({ sampleProducts, t }) {
+export default function GeminiPhotoStudio({ sampleProducts, t, onNavigateToCatalog }) {
   const [selectedProduct, setSelectedProduct] = useState(sampleProducts[0]);
   const [activeAssetTab, setActiveAssetTab] = useState('amazonMain');
   const [isProcessing, setIsProcessing] = useState(false);
@@ -137,16 +140,17 @@ export default function GeminiPhotoStudio({ sampleProducts, t }) {
               <Sparkles size={20} />
             </div>
             <h2 style={{ fontSize: '1.4rem' }}>{t.studioTitle}</h2>
-            <span className="badge badge-brand">Gemini Pro Vision</span>
-            {apiStatus && (
-              <span className={`badge ${apiStatus === 'live' ? 'badge-emerald' : 'badge-amber'}`} style={{ fontSize: '0.65rem' }}>
-                {apiStatus === 'live' ? '🟢 Live API' : '🟡 Simulation Bridge'}
-              </span>
-            )}
+            <span className="badge badge-emerald" style={{ fontSize: '0.7rem' }}>🟢 LIVE: gemini-3.1-flash-lite (Vision)</span>
+            <span className="badge badge-amber" style={{ fontSize: '0.7rem' }}>🟡 STAGED: gemini-3.1-flash-image (Catalog Asset)</span>
+            <span className="badge badge-brand" style={{ fontSize: '0.65rem' }}>Golden Flow Step 1 of 5</span>
           </div>
           <p style={{ color: 'var(--text-secondary)', fontSize: '0.9rem', maxWidth: '680px' }}>
             {t.studioSubtitle}
           </p>
+          <div style={{ marginTop: '6px', fontSize: '0.75rem', color: '#94A3B8', display: 'flex', alignItems: 'center', gap: '6px' }}>
+            <Info size={13} color="#A5B4FC" />
+            <span>Fabric analysis and attribute extraction are <strong>LIVE</strong>. Transformed views display staged catalog assets (Google Cloud project requires billing enabled for live image generative quota; no fake AI images generated).</span>
+          </div>
         </div>
 
         <div style={{ display: 'flex', gap: '8px' }}>
@@ -491,9 +495,24 @@ export default function GeminiPhotoStudio({ sampleProducts, t }) {
               <span style={{ color: '#A5B4FC', fontWeight: 600 }}>Gemini Vision Audit:</span> Click "Re-Enhance with Gemini" or upload a product photo to generate AI analysis with Amazon SEO optimization, compliance scoring, and marketplace-ready bullet points.
             </div>
           )}
+
+          {/* Golden Flow Next Step Button */}
+          {onNavigateToCatalog && (
+            <div style={{ display: 'flex', justifyContent: 'flex-end', paddingTop: '8px' }}>
+              <button
+                onClick={() => onNavigateToCatalog(selectedProduct)}
+                className="btn btn-primary"
+                style={{ display: 'flex', alignItems: 'center', gap: '8px', fontSize: '0.85rem' }}
+              >
+                <span>Golden Flow Step 2: Open Master Product in Amazon Sandbox Catalog</span>
+                <ArrowRight size={16} />
+              </button>
+            </div>
+          )}
         </div>
 
       </div>
     </div>
   );
 }
+

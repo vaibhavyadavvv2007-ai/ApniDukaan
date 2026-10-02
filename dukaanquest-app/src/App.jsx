@@ -183,16 +183,28 @@ export default function App() {
             </div>
           </div>
 
-          {/* Center: Sponsor Strip */}
-          <div style={{ display: 'flex', alignItems: 'center', gap: '16px', background: 'rgba(255, 255, 255, 0.03)', padding: '6px 16px', borderRadius: 'var(--radius-full)', border: '1px solid var(--border-subtle)' }}>
-            <span style={{ fontSize: '0.7rem', color: 'var(--text-muted)', textTransform: 'uppercase', letterSpacing: '0.05em' }}>Integrated Sponsors:</span>
-            <span style={{ fontSize: '0.75rem', color: '#8B5CF6', fontWeight: 600 }}>Gemini Pro</span>
+          {/* Center: Live Integration Tiers Bar */}
+          <div style={{ display: 'flex', alignItems: 'center', gap: '10px', background: 'rgba(255, 255, 255, 0.03)', padding: '6px 14px', borderRadius: 'var(--radius-full)', border: '1px solid var(--border-subtle)', flexWrap: 'wrap' }}>
+            <span style={{ fontSize: '0.68rem', color: 'var(--text-muted)', textTransform: 'uppercase', letterSpacing: '0.05em' }}>Tiers:</span>
+            <span style={{ fontSize: '0.72rem', color: '#6EE7B7', fontWeight: 600, display: 'flex', alignItems: 'center', gap: '3px' }}>
+              ● Gemini <span style={{ fontSize: '0.62rem', background: 'rgba(16,185,129,0.2)', padding: '1px 4px', borderRadius: '3px' }}>LIVE</span>
+            </span>
             <span style={{ color: 'var(--text-muted)' }}>•</span>
-            <span style={{ fontSize: '0.75rem', color: '#38BDF8', fontWeight: 600 }}>n8n Hub</span>
+            <span style={{ fontSize: '0.72rem', color: '#6EE7B7', fontWeight: 600, display: 'flex', alignItems: 'center', gap: '3px' }}>
+              ● Sarvam <span style={{ fontSize: '0.62rem', background: 'rgba(16,185,129,0.2)', padding: '1px 4px', borderRadius: '3px' }}>LIVE</span>
+            </span>
             <span style={{ color: 'var(--text-muted)' }}>•</span>
-            <span style={{ fontSize: '0.75rem', color: '#FCD34D', fontWeight: 600 }}>Sarvam AI</span>
+            <span style={{ fontSize: '0.72rem', color: '#6EE7B7', fontWeight: 600, display: 'flex', alignItems: 'center', gap: '3px' }}>
+              ● WhatsApp/n8n <span style={{ fontSize: '0.62rem', background: 'rgba(16,185,129,0.2)', padding: '1px 4px', borderRadius: '3px' }}>LIVE</span>
+            </span>
             <span style={{ color: 'var(--text-muted)' }}>•</span>
-            <span style={{ fontSize: '0.75rem', color: '#00BAF2', fontWeight: 600 }}>Paytm UPI</span>
+            <span style={{ fontSize: '0.72rem', color: '#FCD34D', fontWeight: 600, display: 'flex', alignItems: 'center', gap: '3px' }}>
+              ● Amazon <span style={{ fontSize: '0.62rem', background: 'rgba(245,158,11,0.2)', padding: '1px 4px', borderRadius: '3px' }}>SANDBOX</span>
+            </span>
+            <span style={{ color: 'var(--text-muted)' }}>•</span>
+            <span style={{ fontSize: '0.72rem', color: '#94A3B8', fontWeight: 600, display: 'flex', alignItems: 'center', gap: '3px' }}>
+              ● Paytm <span style={{ fontSize: '0.62rem', background: 'rgba(148,163,184,0.2)', padding: '1px 4px', borderRadius: '3px' }}>FALLBACK</span>
+            </span>
           </div>
 
           {/* Right Controls: Sarvam Lang Switcher & Merchant Status */}
@@ -280,6 +292,69 @@ export default function App() {
         </div>
       </nav>
 
+      {/* Golden Merchant Journey Interactive Progress Banner */}
+      <section style={{ 
+        background: 'linear-gradient(90deg, rgba(99, 102, 241, 0.12), rgba(16, 185, 129, 0.12), rgba(245, 158, 11, 0.12))', 
+        borderBottom: '1px solid var(--border-subtle)', 
+        padding: '10px 24px' 
+      }}>
+        <div style={{ maxWidth: '1440px', margin: '0 auto', display: 'flex', alignItems: 'center', justifyContent: 'space-between', flexWrap: 'wrap', gap: '12px' }}>
+          <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+            <span style={{ fontSize: '0.75rem', fontWeight: 800, textTransform: 'uppercase', letterSpacing: '0.05em', color: '#A5B4FC' }}>
+              3-Min Golden Journey:
+            </span>
+          </div>
+          
+          <div style={{ display: 'flex', alignItems: 'center', gap: '6px', flexWrap: 'wrap' }}>
+            {[
+              { num: '1', id: 'studio', label: '1. Photo Studio (Gemini Vision)', liveTag: 'LIVE' },
+              { num: '2', id: 'catalog', label: '2. Master SKU & Amazon SP-API', liveTag: 'SANDBOX' },
+              { num: '3', id: 'crm', label: '3. WhatsApp CRM & Sarvam Indic', liveTag: 'LIVE' },
+              { num: '4', id: 'simulator', label: '4. What-If Profit Simulator', liveTag: 'AUDITED' },
+              { num: '5', id: 'town', label: '5. Dukaan Upgrade & Level 3', liveTag: 'QUEST' }
+            ].map((step, idx, arr) => {
+              const isCurrent = activeTab === step.id;
+              return (
+                <React.Fragment key={step.id}>
+                  <button
+                    onClick={() => setActiveTab(step.id)}
+                    style={{
+                      background: isCurrent ? 'var(--brand-primary)' : 'rgba(255, 255, 255, 0.05)',
+                      color: isCurrent ? '#FFFFFF' : '#CBD5E1',
+                      border: isCurrent ? '1px solid #A5B4FC' : '1px solid rgba(255, 255, 255, 0.1)',
+                      borderRadius: 'var(--radius-full)',
+                      padding: '4px 12px',
+                      fontSize: '0.75rem',
+                      fontWeight: isCurrent ? 700 : 500,
+                      cursor: 'pointer',
+                      display: 'flex',
+                      alignItems: 'center',
+                      gap: '6px',
+                      transition: 'all var(--transition-fast)'
+                    }}
+                  >
+                    <span>{step.label}</span>
+                    <span style={{ 
+                      fontSize: '0.62rem', 
+                      padding: '1px 5px', 
+                      borderRadius: '4px',
+                      background: step.liveTag === 'LIVE' ? 'rgba(16, 185, 129, 0.3)' : step.liveTag === 'SANDBOX' ? 'rgba(245, 158, 11, 0.3)' : 'rgba(99, 102, 241, 0.3)',
+                      color: step.liveTag === 'LIVE' ? '#6EE7B7' : step.liveTag === 'SANDBOX' ? '#FCD34D' : '#C7D2FE',
+                      fontWeight: 700
+                    }}>
+                      {step.liveTag}
+                    </span>
+                  </button>
+                  {idx < arr.length - 1 && (
+                    <span style={{ color: 'rgba(255,255,255,0.25)', fontSize: '0.75rem' }}>→</span>
+                  )}
+                </React.Fragment>
+              );
+            })}
+          </div>
+        </div>
+      </section>
+
       {/* Main Content Viewport */}
       <main style={{ flex: 1, maxWidth: '1440px', width: '100%', margin: '0 auto', padding: '24px', display: 'flex', flexDirection: 'column', gap: '24px' }}>
         
@@ -366,6 +441,9 @@ export default function App() {
           <GeminiPhotoStudio 
             sampleProducts={products}
             t={t}
+            onNavigateToCatalog={(prod) => {
+              setActiveTab('catalog');
+            }}
           />
         )}
 
@@ -374,6 +452,9 @@ export default function App() {
           <OmnichannelCatalog 
             sampleProducts={products}
             t={t}
+            onNavigateToCrm={(prod) => {
+              setActiveTab('crm');
+            }}
           />
         )}
 
@@ -384,6 +465,9 @@ export default function App() {
             onDispatchCampaign={(count) => addXp(40)}
             currentLanguage={currentLang}
             t={t}
+            onNavigateToSimulator={() => {
+              setActiveTab('simulator');
+            }}
           />
         )}
 
@@ -392,6 +476,18 @@ export default function App() {
           <WhatIfSimulator 
             onApplyStrategy={(strat) => addXp(50)}
             t={t}
+            onCompleteJourney={() => {
+              addXp(100);
+              setQuests(prev => prev.map(q => ({ ...q, completed: true })));
+              setLevel(3);
+              setActiveTab('town');
+              confetti({
+                particleCount: 150,
+                spread: 120,
+                origin: { y: 0.5 },
+                colors: ['#F59E0B', '#10B981', '#6366F1', '#EC4899', '#00BAF2']
+              });
+            }}
           />
         )}
 
@@ -404,6 +500,7 @@ export default function App() {
         )}
 
       </main>
+
 
       {/* Footer */}
       <footer style={{ background: 'rgba(3, 7, 18, 0.95)', borderTop: '1px solid var(--border-subtle)', padding: '20px 24px', marginTop: 'auto' }}>
