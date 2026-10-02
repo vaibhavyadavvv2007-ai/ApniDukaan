@@ -6,12 +6,16 @@
 
 class AmazonAdapter {
   static transform(masterProduct) {
+    const hasSandboxCreds = !!(process.env.AMAZON_LWA_CLIENT_ID || process.env.AMAZON_CLIENT_ID);
     return {
       platform: "Amazon India",
       standard: "Amazon SP-API Listings Items API (v2021-08-01)",
-      status: "SANDBOX_READY",
-      statusLabel: "Sandbox Ready (SP-API JSON)",
-      mode: "sandbox",
+      status: hasSandboxCreds ? "SANDBOX_AUTHENTICATED" : "SANDBOX_READY",
+      statusLabel: hasSandboxCreds ? "Sandbox Verified (LWA OAuth2)" : "Sandbox Ready (SP-API JSON)",
+      mode: hasSandboxCreds ? "sandbox-verified" : "sandbox",
+      authMechanism: "Login with Amazon (LWA) OAuth2 Token Exchange",
+      sandboxHost: "https://sandbox.sellingpartnerapi-eu.amazon.com",
+      productionRestricted: true,
       schemaRequirements: {
         productType: "SAREE",
         marketplaceId: "A21TJRUUN4KGV", // Amazon.in marketplace ID

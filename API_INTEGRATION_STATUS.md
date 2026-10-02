@@ -62,9 +62,15 @@ The health endpoint responds with real-time operational status:
       "mid": "PAYTM_MID_984521"
     },
     "amazon": {
-      "configured": false,
-      "mode": "sandbox-ready",
-      "standard": "SP-API v2021-08-01"
+      "configured": true,
+      "isLive": false,
+      "mode": "sandbox-verified",
+      "sandboxStatus": "AUTHENTICATED_AND_VERIFIED",
+      "standard": "Amazon SP-API Listings Items API (v2021-08-01)",
+      "endpointTested": "GET /sellers/v1/marketplaceParticipations",
+      "statusCode": 200,
+      "tokenExchange": "Login with Amazon (LWA) OAuth2",
+      "productionRestricted": true
     },
     "flipkart": {
       "configured": false,

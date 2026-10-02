@@ -11,6 +11,7 @@ const { dispatchN8NWebhook, getN8NWorkflowDefinition, getN8NHealth, getWhatsAppT
 const { createPaymentLink, checkPaymentStatus, getPaytmHealth } = require('./services/paytmService');
 const { scrapeMarketplaceSpecs } = require('./services/scraperService');
 const { transformMasterProduct } = require('./services/marketplaceAdapters');
+const { verifySandboxCredentials, getAmazonHealth } = require('./services/amazonService');
 
 const app = express();
 const PORT = process.env.PORT || 5000;
@@ -33,6 +34,7 @@ app.get('/api/health', async (req, res) => {
   const sarvam = await getSarvamHealth();
   const n8n = await getN8NHealth();
   const paytm = await getPaytmHealth();
+  const amazon = await getAmazonHealth();
 
   res.json({
     overall: "operational",
@@ -73,9 +75,14 @@ app.get('/api/health', async (req, res) => {
         notice: paytm.notice
       },
       amazon: {
-        configured: !!process.env.AMAZON_CLIENT_ID,
-        mode: "sandbox-ready",
-        standard: "Amazon SP-API v2021-08-01"
+        configured: amazon.configured,
+        isLive: false,
+        mode: amazon.mode,
+        standard: amazon.standard,
+        sandboxHost: amazon.sandboxHost,
+        authMechanism: amazon.authMechanism,
+        maskedClientId: amazon.maskedClientId,
+        productionRestricted: true
       },
       flipkart: {
         configured: !!process.env.FLIPKART_CLIENT_ID,
@@ -155,6 +162,14 @@ app.post('/api/catalog/transform', (req, res) => {
   const product = req.body;
   const transformed = transformMasterProduct(product);
   res.json(transformed);
+});
+
+// ==========================================
+// 3B. AMAZON SP-API SANDBOX VERIFICATION
+// ==========================================
+app.get('/api/amazon/verify-sandbox', async (req, res) => {
+  const result = await verifySandboxCredentials();
+  res.json(result);
 });
 
 // ==========================================

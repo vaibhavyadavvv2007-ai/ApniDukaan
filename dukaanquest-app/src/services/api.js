@@ -139,3 +139,9 @@ export async function completeQuest(questId) {
   });
   return await res.json();
 }
+
+export async function verifyAmazonSandbox() {
+  const res = await fetch(`${BASE_URL}/amazon/verify-sandbox`);
+  return await res.json();
+}
+

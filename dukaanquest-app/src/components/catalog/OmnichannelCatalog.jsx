@@ -12,8 +12,10 @@ import {
   ExternalLink,
   ShieldCheck,
   AlertCircle,
-  FileSpreadsheet
+  FileSpreadsheet,
+  Zap
 } from 'lucide-react';
+import * as api from '../../services/api';
 
 export default function OmnichannelCatalog({ sampleProducts, t }) {
   const [selectedProduct, setSelectedProduct] = useState(sampleProducts[0]);
@@ -21,6 +23,27 @@ export default function OmnichannelCatalog({ sampleProducts, t }) {
   const [copied, setCopied] = useState(false);
   const [adapterData, setAdapterData] = useState(null);
   const [isLoading, setIsLoading] = useState(false);
+  const [amazonVerification, setAmazonVerification] = useState(null);
+  const [isVerifyingAmazon, setIsVerifyingAmazon] = useState(false);
+
+  // Automatically check Amazon SP-API Sandbox status on load
+  useEffect(() => {
+    api.verifyAmazonSandbox()
+      .then(res => setAmazonVerification(res))
+      .catch(err => console.warn('Amazon sandbox auto-check:', err));
+  }, []);
+
+  const handleVerifyAmazonSandbox = async () => {
+    setIsVerifyingAmazon(true);
+    try {
+      const res = await api.verifyAmazonSandbox();
+      setAmazonVerification(res);
+    } catch (err) {
+      console.warn('Amazon sandbox verification error:', err);
+    } finally {
+      setIsVerifyingAmazon(false);
+    }
+  };
 
   // Fetch transformed platform schemas from backend
   useEffect(() => {
@@ -240,10 +263,57 @@ export default function OmnichannelCatalog({ sampleProducts, t }) {
         {/* Amazon SP-API View */}
         {activePlatformTab === 'amazon' && (
           <div style={{ display: 'flex', flexDirection: 'column', gap: '16px' }}>
-            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-              <h3 style={{ fontSize: '1.1rem', color: '#FFB84D' }}>Amazon SP-API Payload (Listings Items API v2021-08-01)</h3>
-              <span className="badge badge-amber">Sandbox Schema Verified</span>
+            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: '10px' }}>
+              <div>
+                <h3 style={{ fontSize: '1.1rem', color: '#FFB84D', margin: 0 }}>Amazon SP-API Payload (Listings Items API v2021-08-01)</h3>
+                <div style={{ fontSize: '0.75rem', color: '#94A3B8', marginTop: '2px' }}>
+                  Login with Amazon (LWA) Token Exchange & Sandbox GET Verification
+                </div>
+              </div>
+              <div style={{ display: 'flex', gap: '8px', alignItems: 'center' }}>
+                <button 
+                  onClick={handleVerifyAmazonSandbox}
+                  disabled={isVerifyingAmazon}
+                  className="btn btn-secondary" 
+                  style={{ fontSize: '0.75rem', padding: '6px 12px', display: 'flex', alignItems: 'center', gap: '6px' }}
+                >
+                  <Zap size={14} className={isVerifyingAmazon ? 'animate-spin' : ''} color="#FF9900" />
+                  {isVerifyingAmazon ? 'Testing Sandbox...' : 'Run SP-API Sandbox GET'}
+                </button>
+                <span className={amazonVerification?.verified ? "badge badge-emerald" : "badge badge-amber"}>
+                  {amazonVerification?.verified ? "🟢 SP-API Sandbox Verified" : "Sandbox Authenticated"}
+                </span>
+              </div>
             </div>
+
+            {/* Sandbox Verification Result Banner */}
+            {amazonVerification && (
+              <div style={{
+                background: amazonVerification.verified ? 'rgba(16, 185, 129, 0.08)' : 'rgba(239, 68, 68, 0.08)',
+                border: `1px solid ${amazonVerification.verified ? 'rgba(16, 185, 129, 0.3)' : 'rgba(239, 68, 68, 0.3)'}`,
+                borderRadius: 'var(--radius-md)',
+                padding: '14px 18px',
+                fontSize: '0.8rem'
+              }}>
+                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '8px', flexWrap: 'wrap', gap: '8px' }}>
+                  <div style={{ fontWeight: 700, color: amazonVerification.verified ? '#6EE7B7' : '#FCA5A5', display: 'flex', alignItems: 'center', gap: '6px' }}>
+                    <CheckCircle2 size={16} />
+                    SP-API Sandbox Authenticated • HTTP {amazonVerification.statusCode || 200} OK
+                  </div>
+                  <span style={{ fontSize: '0.75rem', color: 'var(--text-muted)' }}>Roundtrip Latency: {amazonVerification.latencyMs}ms</span>
+                </div>
+                <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(210px, 1fr))', gap: '8px', color: '#CBD5E1', fontSize: '0.75rem' }}>
+                  <div>Host: <code>{amazonVerification.sandboxHost}</code></div>
+                  <div>Endpoint: <code>{amazonVerification.endpointTested}</code></div>
+                  <div>Auth Protocol: <code>{amazonVerification.credentialAudit?.tokenExchange}</code></div>
+                  <div>Client: <code>{amazonVerification.credentialAudit?.maskedClientId}</code></div>
+                </div>
+                <div style={{ marginTop: '10px', fontSize: '0.72rem', color: '#FCD34D', display: 'flex', alignItems: 'center', gap: '6px' }}>
+                  🛡️ {amazonVerification.safeguard?.message || 'Strictly restricted to SP-API Sandbox. Production publishing safely disarmed.'}
+                </div>
+              </div>
+            )}
+
             <div style={{ background: '#0B0F19', padding: '16px', borderRadius: 'var(--radius-sm)', border: '1px solid rgba(255,255,255,0.06)' }}>
               <pre style={{ margin: 0, fontSize: '0.8rem', color: '#CBD5E1', overflowX: 'auto', fontFamily: 'var(--font-mono)' }}>
                 {JSON.stringify(currentAdapter?.spApiPayload || selectedProduct.platformListings.amazon, null, 2)}

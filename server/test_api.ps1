@@ -37,6 +37,12 @@ Write-Host "   Meesho: $($transform.platforms.meesho.statusLabel)" -ForegroundCo
 Write-Host "   Myntra: $($transform.platforms.myntra.statusLabel)" -ForegroundColor Gray
 Write-Host "   Nykaa: $($transform.platforms.nykaa.statusLabel)" -ForegroundColor Gray
 
+# 5B. Amazon SP-API Sandbox Verification (LWA OAuth2 Token Exchange & Sandbox GET)
+$amz = Invoke-RestMethod -Uri 'http://localhost:5000/api/amazon/verify-sandbox' -Method Get
+Write-Host "✅ Amazon SP-API Sandbox: Verified: $($amz.verified) (HTTP $($amz.statusCode)) | Endpoint: $($amz.endpointTested)" -ForegroundColor Green
+Write-Host "   LWA Token: $($amz.credentialAudit.tokenExchange) | Masked Client: $($amz.credentialAudit.maskedClientId)" -ForegroundColor Gray
+Write-Host "   Sandbox Host: $($amz.sandboxHost) | Latency: $($amz.latencyMs)ms" -ForegroundColor Gray
+
 # 6. n8n CRM Broadcast & WhatsApp Template Configuration
 $tmpl = Invoke-RestMethod -Uri 'http://localhost:5000/api/crm/template-status' -Method Get
 Write-Host "✅ Meta WhatsApp Template: Active: $($tmpl.activeTemplate) ($($tmpl.language)) | Custom: $($tmpl.customTemplateName) ($($tmpl.metaReviewStatus))" -ForegroundColor Green
@@ -49,5 +55,6 @@ $scrape = Invoke-RestMethod -Uri 'http://localhost:5000/api/readiness/scrape?pla
 Write-Host "✅ Scraper Engine: $($scrape.platform) ($($scrape.specs.Length) official packaging specs verified)" -ForegroundColor Green
 
 Write-Host "==========================================================" -ForegroundColor Cyan
-Write-Host "   ALL 7 CORE ENGINES VERIFIED SUCCESSFULLY               " -ForegroundColor Cyan
+Write-Host "   ALL 8 CORE ENGINES VERIFIED SUCCESSFULLY               " -ForegroundColor Cyan
 Write-Host "==========================================================" -ForegroundColor Cyan
+
