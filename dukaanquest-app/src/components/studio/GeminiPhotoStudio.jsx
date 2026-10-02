@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useRef } from 'react';
 import { 
   Sparkles, 
   Camera, 
@@ -9,34 +9,92 @@ import {
   Check, 
   Image as ImageIcon,
   Zap,
-  Tag
+  Tag,
+  Upload,
+  FileImage
 } from 'lucide-react';
 import confetti from 'canvas-confetti';
+import * as api from '../../services/api';
 
 export default function GeminiPhotoStudio({ sampleProducts, t }) {
   const [selectedProduct, setSelectedProduct] = useState(sampleProducts[0]);
   const [activeAssetTab, setActiveAssetTab] = useState('amazonMain');
   const [isProcessing, setIsProcessing] = useState(false);
   const [processingStage, setProcessingStage] = useState('');
-  const [splitPos, setSplitPos] = useState(50); // 0 to 100 for before/after slider
+  const [splitPos, setSplitPos] = useState(50);
+  const [analysisResult, setAnalysisResult] = useState(null);
+  const [uploadedImagePreview, setUploadedImagePreview] = useState(null);
+  const [apiStatus, setApiStatus] = useState(null); // 'live' | 'bridge' | null
+  const fileInputRef = useRef(null);
 
-  const handleRunGemini = () => {
+  // Real file upload → Gemini backend
+  const handleFileUpload = async (e) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+
+    // Show local preview
+    const reader = new FileReader();
+    reader.onload = (ev) => setUploadedImagePreview(ev.target.result);
+    reader.readAsDataURL(file);
+
+    setIsProcessing(true);
+    setProcessingStage('Uploading product image to Gemini Vision engine...');
+
+    try {
+      const formData = new FormData();
+      formData.append('image', file);
+      formData.append('productContext', selectedProduct?.title || 'Apparel / Saree');
+
+      setProcessingStage('Gemini Pro Vision: analyzing fabric contours & texture...');
+
+      const result = await api.uploadAndEnhanceImage(formData);
+
+      if (result?.success) {
+        setAnalysisResult(result.analysis || result);
+        setApiStatus(result.liveAPI ? 'live' : 'bridge');
+        setProcessingStage('');
+        setIsProcessing(false);
+        confetti({
+          particleCount: 50,
+          spread: 70,
+          origin: { y: 0.7 },
+          colors: ['#8B5CF6', '#EC4899', '#38BDF8']
+        });
+      } else {
+        throw new Error('API returned unsuccessful');
+      }
+    } catch (err) {
+      console.warn('Upload API error, using product context enhance:', err);
+      // Fallback: call enhance endpoint with no image
+      await handleRunGemini();
+    }
+  };
+
+  // Gemini enhance via base64 or context-only
+  const handleRunGemini = async () => {
     setIsProcessing(true);
     setProcessingStage('Analyzing product contours with Gemini Vision...');
-    
-    setTimeout(() => {
+
+    try {
+      // Stage 1
+      await new Promise(r => setTimeout(r, 500));
       setProcessingStage('Isolating fabric & removing shop background...');
-    }, 700);
 
-    setTimeout(() => {
+      // Call backend enhance API
+      const result = await api.enhanceImageWithGemini('', selectedProduct?.title || 'Kanjeevaram Silk Saree');
+
+      // Stage 2
       setProcessingStage('Synthesizing #FFFFFF studio lighting & soft shadows...');
-    }, 1400);
+      await new Promise(r => setTimeout(r, 600));
 
-    setTimeout(() => {
+      if (result?.success !== false) {
+        setAnalysisResult(result.analysis || result);
+        setApiStatus(result.liveAPI ? 'live' : 'bridge');
+      }
+
       setProcessingStage('Generating Myntra lifestyle drape & macro detail...');
-    }, 2100);
+      await new Promise(r => setTimeout(r, 500));
 
-    setTimeout(() => {
       setIsProcessing(false);
       setProcessingStage('');
       confetti({
@@ -45,7 +103,26 @@ export default function GeminiPhotoStudio({ sampleProducts, t }) {
         origin: { y: 0.7 },
         colors: ['#8B5CF6', '#EC4899', '#38BDF8']
       });
-    }, 2800);
+    } catch (err) {
+      console.warn('Gemini enhance error:', err);
+      setIsProcessing(false);
+      setProcessingStage('');
+      // Set default fallback analysis
+      setAnalysisResult({
+        productTitle: "SHREE GANESH Women's Kanjeevaram Pure Silk Saree with Blouse Piece (Maroon Gold)",
+        fabricClassification: "100% Pure Mulberry Silk with metallic Gold Zari border",
+        amazonBullets: [
+          "FABRIC EXCELLENCE: 100% Pure Mulberry Silk with authentic woven metallic Zari work.",
+          "TRADITIONAL WEAVE: South Indian temple motifs with dense contrast pallu design.",
+          "OCCASION READY: Ideal for Indian weddings, Diwali celebrations, and family festivities.",
+          "PACKAGE INCLUDES: 1 Saree (5.5M) + 1 Unstitched Matching Blouse Piece (0.8M).",
+          "CARE DIRECTIVE: Dry Clean Only to maintain the lustrous shine of gold zari."
+        ],
+        complianceScore: 94,
+        recommendations: "Background replaced with pure white #FFFFFF, lighting normalized, 88% product frame occupancy achieved."
+      });
+      setApiStatus('bridge');
+    }
   };
 
   const currentEnhancedImage = selectedProduct.images[activeAssetTab] || selectedProduct.images.amazonMain;
@@ -61,27 +138,50 @@ export default function GeminiPhotoStudio({ sampleProducts, t }) {
             </div>
             <h2 style={{ fontSize: '1.4rem' }}>{t.studioTitle}</h2>
             <span className="badge badge-brand">Gemini Pro Vision</span>
+            {apiStatus && (
+              <span className={`badge ${apiStatus === 'live' ? 'badge-emerald' : 'badge-amber'}`} style={{ fontSize: '0.65rem' }}>
+                {apiStatus === 'live' ? '🟢 Live API' : '🟡 Simulation Bridge'}
+              </span>
+            )}
           </div>
           <p style={{ color: 'var(--text-secondary)', fontSize: '0.9rem', maxWidth: '680px' }}>
             {t.studioSubtitle}
           </p>
         </div>
 
-        <button 
-          onClick={handleRunGemini} 
-          disabled={isProcessing}
-          className="btn btn-primary"
-        >
-          {isProcessing ? (
-            <>
-              <Zap size={16} className="animate-spin" /> Processing AI Studio...
-            </>
-          ) : (
-            <>
-              <Wand2 size={16} /> Re-Enhance with Gemini
-            </>
-          )}
-        </button>
+        <div style={{ display: 'flex', gap: '8px' }}>
+          {/* File Upload Button */}
+          <input
+            ref={fileInputRef}
+            type="file"
+            accept="image/*"
+            onChange={handleFileUpload}
+            style={{ display: 'none' }}
+          />
+          <button
+            onClick={() => fileInputRef.current?.click()}
+            disabled={isProcessing}
+            className="btn btn-secondary"
+          >
+            <Upload size={16} /> Upload Photo
+          </button>
+
+          <button 
+            onClick={handleRunGemini} 
+            disabled={isProcessing}
+            className="btn btn-primary"
+          >
+            {isProcessing ? (
+              <>
+                <Zap size={16} className="animate-spin" /> Processing AI Studio...
+              </>
+            ) : (
+              <>
+                <Wand2 size={16} /> Re-Enhance with Gemini
+              </>
+            )}
+          </button>
+        </div>
       </div>
 
       {/* Product Selector Carousel */}
@@ -91,7 +191,7 @@ export default function GeminiPhotoStudio({ sampleProducts, t }) {
           return (
             <div
               key={prod.id}
-              onClick={() => setSelectedProduct(prod)}
+              onClick={() => { setSelectedProduct(prod); setAnalysisResult(null); setApiStatus(null); }}
               style={{
                 minWidth: '220px',
                 background: isSelected ? 'rgba(99, 102, 241, 0.15)' : 'rgba(255, 255, 255, 0.03)',
@@ -181,9 +281,9 @@ export default function GeminiPhotoStudio({ sampleProducts, t }) {
               }}
             >
               <img 
-                src={selectedProduct.images.raw} 
+                src={uploadedImagePreview || selectedProduct.images.raw} 
                 alt="Raw Phone Shot" 
-                style={{ width: '100%', height: '100%', objectFit: 'cover', maxWidth: 'none', width: '380px' }} 
+                style={{ height: '100%', objectFit: 'cover', maxWidth: 'none', width: '380px' }} 
               />
               <span style={{ position: 'absolute', bottom: '12px', left: '12px', background: 'rgba(0,0,0,0.7)', padding: '3px 8px', borderRadius: '4px', fontSize: '0.7rem', color: '#FCD34D' }}>
                 📷 Raw Shop Shot
@@ -343,10 +443,54 @@ export default function GeminiPhotoStudio({ sampleProducts, t }) {
 
           </div>
 
-          {/* Gemini AI Reasoning Tag */}
-          <div style={{ background: 'rgba(255, 255, 255, 0.02)', border: '1px solid var(--border-subtle)', borderRadius: 'var(--radius-sm)', padding: '12px 16px', fontSize: '0.825rem', color: 'var(--text-secondary)' }}>
-            <span style={{ color: '#A5B4FC', fontWeight: 600 }}>Gemini Vision Audit:</span> Product complies with Amazon Main Image Guideline (RGB 255,255,255 white background, 88% product fill, zero foreign text or watermarks).
-          </div>
+          {/* Gemini AI Analysis Results - Live from Backend */}
+          {analysisResult ? (
+            <div style={{ background: 'rgba(139, 92, 246, 0.05)', border: '1px solid rgba(139, 92, 246, 0.25)', borderRadius: 'var(--radius-md)', padding: '16px', display: 'flex', flexDirection: 'column', gap: '12px' }}>
+              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                <span style={{ color: '#A5B4FC', fontWeight: 700, fontSize: '0.9rem' }}>✨ Gemini AI Analysis Result</span>
+                {analysisResult.complianceScore && (
+                  <span className={`badge ${analysisResult.complianceScore >= 90 ? 'badge-emerald' : 'badge-amber'}`}>
+                    Compliance: {analysisResult.complianceScore}/100
+                  </span>
+                )}
+              </div>
+              
+              {analysisResult.productTitle && (
+                <div>
+                  <div style={{ fontSize: '0.75rem', color: 'var(--text-muted)', fontWeight: 600, textTransform: 'uppercase', marginBottom: '4px' }}>SEO Title</div>
+                  <div style={{ fontSize: '0.875rem', color: '#E2E8F0', fontWeight: 600 }}>{analysisResult.productTitle}</div>
+                </div>
+              )}
+
+              {analysisResult.fabricClassification && (
+                <div>
+                  <div style={{ fontSize: '0.75rem', color: 'var(--text-muted)', fontWeight: 600, textTransform: 'uppercase', marginBottom: '4px' }}>Fabric</div>
+                  <div style={{ fontSize: '0.85rem', color: '#FCD34D' }}>{analysisResult.fabricClassification}</div>
+                </div>
+              )}
+
+              {analysisResult.amazonBullets && (
+                <div>
+                  <div style={{ fontSize: '0.75rem', color: 'var(--text-muted)', fontWeight: 600, textTransform: 'uppercase', marginBottom: '4px' }}>Amazon A9 Bullets</div>
+                  <ul style={{ margin: 0, paddingLeft: '16px', display: 'flex', flexDirection: 'column', gap: '4px' }}>
+                    {analysisResult.amazonBullets.map((b, i) => (
+                      <li key={i} style={{ fontSize: '0.8rem', color: 'var(--text-secondary)' }}>{b}</li>
+                    ))}
+                  </ul>
+                </div>
+              )}
+
+              {analysisResult.recommendations && (
+                <div style={{ fontSize: '0.8rem', color: '#6EE7B7', background: 'rgba(16, 185, 129, 0.08)', padding: '8px 12px', borderRadius: 'var(--radius-sm)' }}>
+                  💡 {analysisResult.recommendations}
+                </div>
+              )}
+            </div>
+          ) : (
+            <div style={{ background: 'rgba(255, 255, 255, 0.02)', border: '1px solid var(--border-subtle)', borderRadius: 'var(--radius-sm)', padding: '12px 16px', fontSize: '0.825rem', color: 'var(--text-secondary)' }}>
+              <span style={{ color: '#A5B4FC', fontWeight: 600 }}>Gemini Vision Audit:</span> Click "Re-Enhance with Gemini" or upload a product photo to generate AI analysis with Amazon SEO optimization, compliance scoring, and marketplace-ready bullet points.
+            </div>
+          )}
         </div>
 
       </div>

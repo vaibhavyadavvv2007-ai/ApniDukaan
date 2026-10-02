@@ -71,7 +71,9 @@ const initialData = {
       phone: "+91 98450 12345",
       tags: ["VIP", "Bridal"],
       totalSpend: 24500,
-      language: "kn"
+      language: "kn",
+      marketingOptIn: true,
+      optInDate: "2026-09-01"
     },
     {
       id: "cust-102",
@@ -79,7 +81,9 @@ const initialData = {
       phone: "+91 97112 67890",
       tags: ["VIP", "Festive"],
       totalSpend: 18200,
-      language: "hi"
+      language: "hi",
+      marketingOptIn: true,
+      optInDate: "2026-08-15"
     },
     {
       id: "cust-103",
@@ -87,7 +91,9 @@ const initialData = {
       phone: "+91 94441 55521",
       tags: ["Inactive >30d"],
       totalSpend: 7800,
-      language: "ta"
+      language: "ta",
+      marketingOptIn: true,
+      optInDate: "2026-07-20"
     }
   ],
   readinessRules: {

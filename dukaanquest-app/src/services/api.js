@@ -98,6 +98,16 @@ export async function fetchN8NWorkflow() {
   return await res.json();
 }
 
+export async function fetchWhatsAppTemplateStatus() {
+  try {
+    const res = await fetch(`${BASE_URL}/crm/template-status`);
+    return await res.json();
+  } catch (err) {
+    console.warn('Could not fetch template status:', err);
+    return null;
+  }
+}
+
 export async function translateWithSarvam(text, targetLanguage) {
   const res = await fetch(`${BASE_URL}/sarvam/translate`, {
     method: 'POST',

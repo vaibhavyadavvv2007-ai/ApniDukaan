@@ -6,7 +6,7 @@
     "category": "Apparel & Ethnic Wear",
     "level": 2,
     "levelTitle": "Mohalla Merchant",
-    "currentXp": 420,
+    "currentXp": 545,
     "nextLevelXp": 600,
     "streakDays": 4,
     "monthlyOfflineRevenue": 148500
@@ -197,7 +197,7 @@
           "id": "myn-04",
           "title": "Curated Model/Mannequin Photography Verification",
           "mandatory": true,
-          "completed": true,
+          "completed": false,
           "xpReward": 45
         }
       ]
@@ -227,6 +227,38 @@
       "title": "Run 'What-If' Simulation",
       "xp": 40,
       "completed": true
+    }
+  ],
+  "customers": [
+    {
+      "id": "cust-101",
+      "name": "Ananya Deshpande",
+      "phone": "+91 98450 12345",
+      "tags": ["VIP", "Bridal"],
+      "totalSpend": 24500,
+      "language": "kn",
+      "marketingOptIn": true,
+      "optInDate": "2026-09-01"
+    },
+    {
+      "id": "cust-102",
+      "name": "Sunita Sharma",
+      "phone": "+91 97112 67890",
+      "tags": ["VIP", "Festive"],
+      "totalSpend": 18200,
+      "language": "hi",
+      "marketingOptIn": true,
+      "optInDate": "2026-08-15"
+    },
+    {
+      "id": "cust-103",
+      "name": "Meenakshi Sundaram",
+      "phone": "+91 94441 55521",
+      "tags": ["Inactive >30d"],
+      "totalSpend": 7800,
+      "language": "ta",
+      "marketingOptIn": true,
+      "optInDate": "2026-07-20"
     }
   ]
 }

@@ -20,6 +20,8 @@ export default function PhysicalReadinessChecker({
 }) {
   const [selectedPlatform, setSelectedPlatform] = useState('amazon');
   const [showPrintModal, setShowPrintModal] = useState(false);
+  const [scrapedData, setScrapedData] = useState(null);
+  const [isScraping, setIsScraping] = useState(false);
 
   const currentRules = readinessRules[selectedPlatform];
   const items = currentRules.checklist;
@@ -27,6 +29,20 @@ export default function PhysicalReadinessChecker({
   const totalCount = items.length;
   const progressPct = Math.round((completedCount / totalCount) * 100);
   const isCertified = items.filter(i => i.mandatory).every(i => i.completed);
+
+  const handleLiveScrape = async (platform) => {
+    setIsScraping(true);
+    try {
+      const target = platform || selectedPlatform;
+      const res = await fetch(`/api/readiness/scrape?platform=${target}&category=apparel`);
+      const data = await res.json();
+      setScrapedData(data);
+    } catch (err) {
+      console.warn('Scrape failed, using local rules:', err);
+    } finally {
+      setIsScraping(false);
+    }
+  };
 
   const handleToggle = (item) => {
     const nextCompleted = !item.completed;
@@ -58,13 +74,23 @@ export default function PhysicalReadinessChecker({
           </p>
         </div>
 
-        <button 
-          onClick={() => setShowPrintModal(true)}
-          className="btn btn-secondary" 
-          style={{ fontSize: '0.85rem' }}
-        >
-          <Printer size={16} /> Print Seller Checklist & Specs
-        </button>
+        <div style={{ display: 'flex', gap: '10px', flexWrap: 'wrap' }}>
+          <button 
+            onClick={() => handleLiveScrape(selectedPlatform)}
+            disabled={isScraping}
+            className="btn btn-primary"
+            style={{ fontSize: '0.85rem', display: 'flex', alignItems: 'center', gap: '6px' }}
+          >
+            <Sparkles size={15} /> {isScraping ? 'Scraping Documentation...' : '⚡ Scrape Live Marketplace Specs'}
+          </button>
+          <button 
+            onClick={() => setShowPrintModal(true)}
+            className="btn btn-secondary" 
+            style={{ fontSize: '0.85rem' }}
+          >
+            <Printer size={16} /> Print Seller Checklist
+          </button>
+        </div>
       </div>
 
       {/* Platform Selector Tabs */}
@@ -140,6 +166,51 @@ export default function PhysicalReadinessChecker({
           </div>
         </div>
       </div>
+
+      {/* Scraped Documentation Inspector */}
+      {scrapedData && (
+        <div style={{ 
+          background: 'rgba(99, 102, 241, 0.08)', 
+          border: '1px solid rgba(99, 102, 241, 0.3)', 
+          borderRadius: 'var(--radius-md)', 
+          padding: '16px 20px',
+          display: 'flex',
+          flexDirection: 'column',
+          gap: '12px'
+        }}>
+          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: '8px' }}>
+            <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+              <Sparkles size={16} color="#A5B4FC" />
+              <span style={{ fontWeight: 700, color: '#FFFFFF', fontSize: '0.95rem' }}>
+                Live Scraped Seller Specs: {scrapedData.platform}
+              </span>
+              <span className="badge badge-brand" style={{ fontSize: '0.65rem' }}>
+                Category: {scrapedData.category}
+              </span>
+            </div>
+            <a 
+              href={scrapedData.sourceUrl} 
+              target="_blank" 
+              rel="noreferrer"
+              style={{ fontSize: '0.75rem', color: '#818CF8', display: 'flex', alignItems: 'center', gap: '4px', textDecoration: 'none' }}
+            >
+              Verify Original Source Docs <ExternalLink size={12} />
+            </a>
+          </div>
+          <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(280px, 1fr))', gap: '10px' }}>
+            {scrapedData.specs?.map((spec, i) => (
+              <div key={i} style={{ background: 'rgba(0, 0, 0, 0.3)', padding: '10px 14px', borderRadius: 'var(--radius-sm)', border: '1px solid rgba(255,255,255,0.05)', fontSize: '0.825rem', color: 'var(--text-secondary)' }}>
+                <span style={{ color: '#FCD34D', fontWeight: 600 }}>•</span> {spec}
+              </div>
+            ))}
+          </div>
+          {scrapedData.returnsProtocol && (
+            <div style={{ fontSize: '0.8rem', color: '#94A3B8', borderTop: '1px solid rgba(255,255,255,0.05)', paddingTop: '8px' }}>
+              <strong style={{ color: '#E2E8F0' }}>Reverse Logistics & Returns:</strong> {scrapedData.returnsProtocol}
+            </div>
+          )}
+        </div>
+      )}
 
       {/* Checklist Items */}
       <div style={{ display: 'flex', flexDirection: 'column', gap: '12px' }}>
