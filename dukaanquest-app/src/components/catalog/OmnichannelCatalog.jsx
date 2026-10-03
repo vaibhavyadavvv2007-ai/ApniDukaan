@@ -1,43 +1,20 @@
 import React, { useState, useEffect } from 'react';
-import { 
-  ShoppingBag, 
-  Copy, 
-  Check, 
-  Download, 
-  FileText, 
-  Globe, 
-  CheckCircle2,
-  Tag,
-  ArrowRight,
-  ExternalLink,
-  ShieldCheck,
-  AlertCircle,
-  FileSpreadsheet,
-  Zap,
-  Layers,
-  CheckSquare,
-  Search,
-  RefreshCw,
-  ChevronDown,
-  ChevronRight,
-  Send,
-  Boxes,
-  Info
-} from 'lucide-react';
+import { Copy, Check, Download, ChevronDown, ChevronRight, Send, ShieldCheck } from 'lucide-react';
 import confetti from 'canvas-confetti';
 import * as api from '../../services/api';
 
+const CONFETTI_COLORS = ['#E8A33D', '#F2C179', '#7BB88F'];
+
 export default function OmnichannelCatalog({ sampleProducts, t, onNavigateToCrm }) {
   const [selectedProduct, setSelectedProduct] = useState(sampleProducts[0]);
-  const [activePlatformTab, setActivePlatformTab] = useState('amazon'); // amazon, flipkart, meesho, myntra, nykaa
+  const [activePlatformTab, setActivePlatformTab] = useState('amazon');
   const [copied, setCopied] = useState(false);
   const [adapterData, setAdapterData] = useState(null);
-  const [isLoading, setIsLoading] = useState(false);
 
   // Amazon SP-API Sandbox state
   const [amazonVerification, setAmazonVerification] = useState(null);
   const [isVerifyingAmazon, setIsVerifyingAmazon] = useState(false);
-  
+
   // Amazon Listings POC state
   const [selectedProductType, setSelectedProductType] = useState('SAREE');
   const [availableProductTypes, setAvailableProductTypes] = useState([
@@ -47,38 +24,21 @@ export default function OmnichannelCatalog({ sampleProducts, t, onNavigateToCrm 
     { name: 'KURTA', displayName: 'Kurta' },
     { name: 'DRESS', displayName: 'Dress' }
   ]);
-  const [typeDefinition, setTypeDefinition] = useState(null);
-  const [isLoadingDefinition, setIsLoadingDefinition] = useState(false);
   const [isSubmittingListing, setIsSubmittingListing] = useState(false);
   const [listingSubmissionResult, setListingSubmissionResult] = useState(null);
   const [showPayloadDetails, setShowPayloadDetails] = useState(false);
 
-  // Automatically check Amazon SP-API Sandbox status on load
   useEffect(() => {
     api.verifyAmazonSandbox()
       .then(res => setAmazonVerification(res))
       .catch(err => console.warn('Amazon sandbox auto-check:', err));
-    
-    // Fetch product types and definition
+
     api.fetchAmazonProductTypes('SAREE')
       .then(res => {
-        if (res?.productTypes?.length) {
-          setAvailableProductTypes(res.productTypes);
-        }
+        if (res?.productTypes?.length) setAvailableProductTypes(res.productTypes);
       })
       .catch(() => {});
   }, []);
-
-  // Fetch definition when product type changes
-  useEffect(() => {
-    setIsLoadingDefinition(true);
-    api.fetchAmazonProductTypeDefinition(selectedProductType)
-      .then(res => {
-        setTypeDefinition(res);
-        setIsLoadingDefinition(false);
-      })
-      .catch(() => setIsLoadingDefinition(false));
-  }, [selectedProductType]);
 
   const handleVerifyAmazonSandbox = async () => {
     setIsVerifyingAmazon(true);
@@ -92,21 +52,14 @@ export default function OmnichannelCatalog({ sampleProducts, t, onNavigateToCrm 
     }
   };
 
-  // Submit Listing to SP-API Sandbox (PUT)
   const handleSubmitListing = async () => {
     setIsSubmittingListing(true);
     try {
       const result = await api.submitAmazonListing(selectedProduct, 'SANDBOX_SELLER_ID', selectedProduct.sku);
       setListingSubmissionResult(result);
-      confetti({
-        particleCount: 50,
-        spread: 70,
-        origin: { y: 0.6 },
-        colors: ['#FF9900', '#10B981', '#38BDF8']
-      });
+      confetti({ particleCount: 50, spread: 70, origin: { y: 0.6 }, colors: CONFETTI_COLORS });
     } catch (err) {
       console.warn('Amazon listing submission error:', err);
-      // Fallback display
       setListingSubmissionResult({
         success: true,
         mode: 'export-fallback',
@@ -121,20 +74,14 @@ export default function OmnichannelCatalog({ sampleProducts, t, onNavigateToCrm 
     }
   };
 
-  // Fetch transformed platform schemas from backend
   useEffect(() => {
     async function loadTransformedData() {
-      setIsLoading(true);
       try {
         const res = await fetch(`/api/catalog/transform/${selectedProduct.id}`);
         const data = await res.json();
-        if (data && data.platforms) {
-          setAdapterData(data.platforms);
-        }
+        if (data && data.platforms) setAdapterData(data.platforms);
       } catch (err) {
         console.warn('Could not fetch marketplace transform, using local fallback:', err);
-      } finally {
-        setIsLoading(false);
       }
     }
     loadTransformedData();
@@ -142,94 +89,17 @@ export default function OmnichannelCatalog({ sampleProducts, t, onNavigateToCrm 
 
   // Validation Engine: check selectedProduct against Amazon SP-API requirements
   const validationChecks = [
-    {
-      id: 'item_name',
-      label: 'Product Title (item_name)',
-      required: true,
-      valid: !!selectedProduct.title && selectedProduct.title.length <= 200,
-      value: selectedProduct.title,
-      rule: 'Max 200 characters, includes brand and fabric'
-    },
-    {
-      id: 'brand',
-      label: 'Brand (brand)',
-      required: true,
-      valid: !!(selectedProduct.brand || 'SHREE GANESH'),
-      value: selectedProduct.brand || 'SHREE GANESH',
-      rule: 'Brand registry identifier or store name'
-    },
-    {
-      id: 'bullet_point',
-      label: 'Key Product Features (bullet_point)',
-      required: true,
-      valid: (selectedProduct.platformListings?.amazon?.bullets?.length || 5) >= 3,
-      value: `${(selectedProduct.platformListings?.amazon?.bullets?.length || 5)} formatted bullet points`,
-      rule: '5 structured bullet points highlighting fabric, weave, care'
-    },
-    {
-      id: 'standard_price',
-      label: 'Standard Price (standard_price)',
-      required: true,
-      valid: Number(selectedProduct.basePrice) > 0,
-      value: `₹${Number(selectedProduct.basePrice).toLocaleString()} INR`,
-      rule: 'Numeric currency value in INR'
-    },
-    {
-      id: 'fulfillment_availability',
-      label: 'Stock Quantity (fulfillment_availability)',
-      required: true,
-      valid: Number(selectedProduct.stockCount) >= 0,
-      value: `${selectedProduct.stockCount} units (DEFAULT channel)`,
-      rule: 'Seller-fulfilled inventory count'
-    },
-    {
-      id: 'country_of_origin',
-      label: 'Country of Origin (country_of_origin)',
-      required: true,
-      valid: true,
-      value: 'IN (India)',
-      rule: 'ISO 3166-1 alpha-2 standard country code'
-    },
-    {
-      id: 'main_product_image_locator',
-      label: 'Main Image (main_product_image_locator)',
-      required: true,
-      valid: !!(selectedProduct.images?.amazonMain || selectedProduct.images?.raw),
-      value: selectedProduct.images?.amazonMain || 'Compliant URL provided',
-      rule: 'Pure #FFFFFF background, min 1000px resolution'
-    },
-    {
-      id: 'manufacturer',
-      label: 'Manufacturer (manufacturer)',
-      required: true,
-      valid: true,
-      value: selectedProduct.manufacturer || 'Shree Ganesh Matching & Saree Centre',
-      rule: 'Registered retail or manufacturing firm'
-    },
-    {
-      id: 'color',
-      label: 'Color (color)',
-      required: true,
-      valid: true,
-      value: selectedProduct.color || 'Maroon Gold',
-      rule: 'Dominant product shade'
-    },
-    {
-      id: 'department',
-      label: 'Department (department)',
-      required: true,
-      valid: true,
-      value: 'womens',
-      rule: 'Apparel target consumer segment'
-    },
-    {
-      id: 'material_composition',
-      label: 'Material (material_composition)',
-      required: true,
-      valid: !!(selectedProduct.fabric),
-      value: selectedProduct.fabric || '100% Pure Mulberry Silk',
-      rule: 'Fabric certification breakdown'
-    }
+    { id: 'item_name', label: 'Product title', valid: !!selectedProduct.title && selectedProduct.title.length <= 200, value: selectedProduct.title, rule: 'Short enough for search results, brand first' },
+    { id: 'brand', label: 'Brand', valid: !!(selectedProduct.brand || 'SHREE GANESH'), value: selectedProduct.brand || 'SHREE GANESH', rule: 'Your shop name as Amazon should show it' },
+    { id: 'bullet_point', label: 'Key features', valid: (selectedProduct.platformListings?.amazon?.bullets?.length || 5) >= 3, value: `${(selectedProduct.platformListings?.amazon?.bullets?.length || 5)} bullet points`, rule: 'Fabric, weave and care, one point each' },
+    { id: 'standard_price', label: 'Price', valid: Number(selectedProduct.basePrice) > 0, value: `₹${Number(selectedProduct.basePrice).toLocaleString()}`, rule: 'Selling price in rupees, no symbols' },
+    { id: 'fulfillment_availability', label: 'Stock', valid: Number(selectedProduct.stockCount) >= 0, value: `${selectedProduct.stockCount} units`, rule: 'How many you can ship from your own store' },
+    { id: 'country_of_origin', label: 'Country of origin', valid: true, value: 'India', rule: 'Where the garment was made' },
+    { id: 'main_product_image_locator', label: 'Main image', valid: !!(selectedProduct.images?.amazonMain || selectedProduct.images?.raw), value: 'Pure white background', rule: 'Plain white background, large enough to zoom' },
+    { id: 'manufacturer', label: 'Manufacturer', valid: true, value: selectedProduct.manufacturer || 'Shree Ganesh Matching & Saree Centre', rule: 'Your registered business name' },
+    { id: 'color', label: 'Colour', valid: true, value: selectedProduct.color || 'Maroon Gold', rule: 'Dominant product shade' },
+    { id: 'department', label: 'Department', valid: true, value: 'Womenswear', rule: 'Who the garment is made for' },
+    { id: 'material_composition', label: 'Material', valid: !!(selectedProduct.fabric), value: selectedProduct.fabric || '100% Pure Mulberry Silk', rule: 'Exact fabric content, in percent' }
   ];
 
   const validCount = validationChecks.filter(c => c.valid).length;
@@ -237,41 +107,11 @@ export default function OmnichannelCatalog({ sampleProducts, t, onNavigateToCrm 
   const isAllValid = validCount === totalCount;
 
   const platformMeta = {
-    amazon: {
-      name: "Amazon India",
-      standard: "Amazon SP-API Listings Items API (v2021-08-01)",
-      badge: "SANDBOX READY",
-      badgeClass: "badge-amber",
-      color: "#FF9900"
-    },
-    flipkart: {
-      name: "Flipkart Seller Hub",
-      standard: "Flipkart FMS Listing Specification v3",
-      badge: "STAGED READY",
-      badgeClass: "badge-brand",
-      color: "#2874F0"
-    },
-    meesho: {
-      name: "Meesho",
-      standard: "Meesho Supplier Panel Flatfile (Bulk CSV)",
-      badge: "UPLOAD READY",
-      badgeClass: "badge-emerald",
-      color: "#F43397"
-    },
-    myntra: {
-      name: "Myntra",
-      standard: "Myntra MMIP Partner Catalog Submission",
-      badge: "PARTNER STAGED",
-      badgeClass: "badge-amber",
-      color: "#FF3F6C"
-    },
-    nykaa: {
-      name: "Nykaa Fashion",
-      standard: "Nykaa Brand Association Dossier",
-      badge: "ELIGIBILITY WORKFLOW",
-      badgeClass: "badge-rose",
-      color: "#FC2779"
-    }
+    amazon:    { name: 'Amazon',     status: 'Sandbox connected', tone: 'pill-ok',   spec: 'Amazon selling sandbox, not the live store' },
+    flipkart:  { name: 'Flipkart',   status: 'Partner approval pending', tone: 'pill-warn', spec: 'Seller Hub listing spec v3' },
+    meesho:    { name: 'Meesho',     status: 'Export ready', tone: 'pill-ok',   spec: 'Supplier panel flatfile (CSV)' },
+    myntra:    { name: 'Myntra',     status: 'Partner approval pending', tone: 'pill-warn', spec: 'Partner catalog submission' },
+    nykaa:     { name: 'Nykaa',      status: 'Eligibility workflow', tone: 'pill-quiet', spec: 'Brand association dossier' }
   };
 
   const currentPlatformInfo = platformMeta[activePlatformTab] || platformMeta.amazon;
@@ -297,517 +137,259 @@ export default function OmnichannelCatalog({ sampleProducts, t, onNavigateToCrm 
       document.body.removeChild(link);
       return;
     }
-
     const csvContent = `data:text/csv;charset=utf-8,Platform,SKU,Title,Price,Stock\n${activePlatformTab.toUpperCase()},${selectedProduct.sku},"${selectedProduct.title}",${selectedProduct.basePrice},${selectedProduct.stockCount}`;
-    const encodedUri = encodeURI(csvContent);
     const link = document.createElement("a");
-    link.setAttribute("href", encodedUri);
+    link.setAttribute("href", encodeURI(csvContent));
     link.setAttribute("download", `${selectedProduct.sku}_${activePlatformTab}_flatfile.csv`);
     document.body.appendChild(link);
     link.click();
     document.body.removeChild(link);
   };
 
+  const currentPayload = {
+    amazon:   currentAdapter?.spApiPayload || selectedProduct.platformListings.amazon,
+    flipkart: currentAdapter?.fmsPayload || selectedProduct.platformListings.flipkart,
+    meesho:   currentAdapter?.bulkUploadCSV || "SKU,Product Name,Category,GST %,Price,MRP,Stock\nSG-01,Royal Kanjeevaram Saree,Saree,5%,4850,6999,14",
+    myntra:   currentAdapter?.mmipPayload || selectedProduct.platformListings.myntra,
+    nykaa:    currentAdapter?.brandDossier || { brand: "Shree Ganesh", category: "Handloom Sarees" }
+  }[activePlatformTab];
+
   return (
-    <div className="glass-card" style={{ padding: '28px', display: 'flex', flexDirection: 'column', gap: '24px' }}>
-      {/* Header */}
-      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', flexWrap: 'wrap', gap: '16px' }}>
-        <div>
-          <div style={{ display: 'flex', alignItems: 'center', gap: '10px', marginBottom: '6px' }}>
-            <div style={{ width: '36px', height: '36px', borderRadius: '10px', background: 'rgba(99, 102, 241, 0.15)', border: '1px solid rgba(99, 102, 241, 0.3)', display: 'flex', alignItems: 'center', justifyContent: 'center', color: '#6366F1' }}>
-              <Globe size={20} />
-            </div>
-            <h2 style={{ fontSize: '1.4rem' }}>{t.navCatalog}</h2>
-            <span className="badge badge-brand">Unified Master Record</span>
-            <span className="badge badge-amber" style={{ fontSize: '0.65rem' }}>Golden Flow Step 2 of 5</span>
-          </div>
-          <p style={{ color: 'var(--text-secondary)', fontSize: '0.9rem', maxWidth: '680px' }}>
-            <strong>Create once. Transform everywhere.</strong> A single master retail SKU automatically adapts into format-compliant payloads for Amazon SP-API, Flipkart FMS, Meesho Bulk CSV, Myntra MMIP, and Nykaa.
-          </p>
-        </div>
-
-        <div style={{ display: 'flex', gap: '10px', flexWrap: 'wrap' }}>
-          <button onClick={handleCopy} className="btn btn-secondary" style={{ fontSize: '0.85rem' }}>
-            {copied ? <Check size={16} color="#10B981" /> : <Copy size={16} />}
-            {copied ? 'Copied Payload!' : 'Copy Schema JSON'}
-          </button>
-          <button onClick={handleExportCSV} className="btn btn-primary" style={{ fontSize: '0.85rem' }}>
-            <Download size={16} /> {activePlatformTab === 'meesho' ? 'Export Supplier Flatfile (.csv)' : t.exportFlatfile}
-          </button>
-        </div>
-      </div>
-
-      {/* Master Product Card */}
-      <div style={{ background: 'rgba(3, 7, 18, 0.6)', border: '1px solid var(--border-subtle)', borderRadius: 'var(--radius-md)', padding: '16px 20px', display: 'flex', alignItems: 'center', justifyContent: 'space-between', flexWrap: 'wrap', gap: '16px' }}>
-        <div style={{ display: 'flex', alignItems: 'center', gap: '16px' }}>
-          <img 
-            src={selectedProduct.images.amazonMain} 
-            alt={selectedProduct.title} 
-            style={{ width: '64px', height: '64px', borderRadius: '10px', objectFit: 'cover', border: '1px solid rgba(255,255,255,0.1)' }} 
+    <div className="stack">
+      {/* ---------- The master product is the hero ---------- */}
+      <section className="surface" style={{ padding: 'var(--s5)', display: 'flex', gap: 'var(--s5)', alignItems: 'center', flexWrap: 'wrap', justifyContent: 'space-between' }}>
+        <div style={{ display: 'flex', gap: 'var(--s4)', alignItems: 'center', minWidth: 0 }}>
+          <img
+            src={selectedProduct.images.amazonMain}
+            alt={selectedProduct.title}
+            style={{ width: 72, height: 72, borderRadius: 'var(--r-md)', objectFit: 'cover', flexShrink: 0 }}
           />
-          <div>
-            <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
-              <span style={{ fontWeight: 700, fontSize: '1.1rem' }}>{selectedProduct.title}</span>
-              <span className="badge badge-emerald">In Stock ({selectedProduct.stockCount})</span>
-            </div>
-            <div style={{ color: 'var(--text-muted)', fontSize: '0.85rem', display: 'flex', gap: '16px', marginTop: '4px', flexWrap: 'wrap' }}>
-              <span>SKU: <code style={{ color: '#38BDF8', fontFamily: 'var(--font-mono)' }}>{selectedProduct.sku}</code></span>
-              <span>Price: <strong style={{ color: '#10B981' }}>₹{selectedProduct.basePrice.toLocaleString()}</strong></span>
-              <span>MRP: <del>₹{selectedProduct.mrp.toLocaleString()}</del></span>
-              <span>Fabric: <strong style={{ color: '#FCD34D' }}>{selectedProduct.fabric}</strong></span>
+          <div style={{ minWidth: 0 }}>
+            <p className="eyebrow">Listing everything at once</p>
+            <h2 style={{ fontSize: '1.125rem', marginTop: 4 }}>{selectedProduct.title}</h2>
+            <div style={{ display: 'flex', gap: 'var(--s4)', flexWrap: 'wrap', marginTop: 6 }}>
+              <span className="mono meta">{selectedProduct.sku}</span>
+              <span className="meta">{selectedProduct.stockCount} in stock</span>
+              <span className="mono meta">₹{selectedProduct.basePrice.toLocaleString()}</span>
+              <span className="meta">{selectedProduct.fabric}</span>
             </div>
           </div>
         </div>
 
-        {/* Change Product Dropdown */}
-        <select 
-          value={selectedProduct.id} 
-          onChange={(e) => {
-            const p = sampleProducts.find(item => item.id === e.target.value);
-            if (p) setSelectedProduct(p);
-            setListingSubmissionResult(null);
-          }}
-          style={{ background: 'rgba(15, 23, 42, 0.9)', border: '1px solid var(--border-medium)', color: '#FFFFFF', padding: '8px 14px', borderRadius: 'var(--radius-sm)', fontSize: '0.85rem' }}
-        >
-          {sampleProducts.map(p => (
-            <option key={p.id} value={p.id}>{p.title} (₹{p.basePrice})</option>
-          ))}
-        </select>
-      </div>
+        <div style={{ display: 'flex', gap: 8, alignItems: 'center', flexWrap: 'wrap' }}>
+          <select
+            value={selectedProduct.id}
+            onChange={(e) => {
+              const p = sampleProducts.find(item => item.id === e.target.value);
+              if (p) setSelectedProduct(p);
+              setListingSubmissionResult(null);
+            }}
+            className="field"
+            style={{ maxWidth: 260 }}
+            aria-label="Choose a product"
+          >
+            {sampleProducts.map(p => (
+              <option key={p.id} value={p.id}>{p.title}</option>
+            ))}
+          </select>
+          <button onClick={handleCopy} className="btn btn-secondary btn-sm">
+            {copied ? <Check size={14} color="var(--ok)" /> : <Copy size={14} />}
+            {copied ? 'Copied' : 'Copy'}
+          </button>
+          <button onClick={handleExportCSV} className="btn btn-primary btn-sm">
+            <Download size={14} /> {activePlatformTab === 'meesho' ? 'Export CSV' : 'Export listing'}
+          </button>
+        </div>
+      </section>
 
-      {/* Platform Switcher Tabs */}
-      <div style={{ display: 'flex', gap: '10px', borderBottom: '1px solid var(--border-subtle)', paddingBottom: '14px', flexWrap: 'wrap' }}>
-        {Object.entries(platformMeta).map(([key, meta]) => {
-          const active = activePlatformTab === key;
-          return (
+      {/* ---------- Where it goes ---------- */}
+      <section>
+        <div className="section-head">
+          <h2>Where this product goes</h2>
+          <span className="meta">Same product, five marketplaces</span>
+        </div>
+        <div className="segmented">
+          {Object.entries(platformMeta).map(([key, meta]) => (
             <button
               key={key}
               onClick={() => setActivePlatformTab(key)}
-              style={{
-                background: active ? `${meta.color}22` : 'rgba(255, 255, 255, 0.03)',
-                border: active ? `1px solid ${meta.color}` : '1px solid var(--border-subtle)',
-                color: active ? '#FFFFFF' : 'var(--text-secondary)',
-                padding: '10px 16px',
-                borderRadius: 'var(--radius-md)',
-                fontWeight: active ? 700 : 500,
-                cursor: 'pointer',
-                display: 'flex',
-                alignItems: 'center',
-                gap: '8px',
-                transition: 'all var(--transition-fast)'
-              }}
+              className={`segment${activePlatformTab === key ? ' segment-active' : ''}`}
             >
-              <span>{meta.name}</span>
-              <span className={`badge ${meta.badgeClass}`} style={{ fontSize: '0.65rem' }}>
-                {meta.badge}
-              </span>
+              {meta.name}
             </button>
-          );
-        })}
-      </div>
-
-      {/* Honest Status Banner */}
-      <div style={{ 
-        background: 'rgba(3, 7, 18, 0.7)', 
-        border: '1px solid var(--border-subtle)', 
-        borderRadius: 'var(--radius-md)', 
-        padding: '14px 20px', 
-        display: 'flex', 
-        justifyContent: 'space-between', 
-        alignItems: 'center',
-        flexWrap: 'wrap',
-        gap: '12px'
-      }}>
-        <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
-          <ShieldCheck size={18} color={currentPlatformInfo.color} />
-          <div>
-            <span style={{ fontWeight: 700, fontSize: '0.95rem' }}>{currentPlatformInfo.name} Integration Pipeline</span>
-            <div style={{ fontSize: '0.8rem', color: 'var(--text-muted)' }}>
-              Standard: <code>{currentPlatformInfo.standard}</code>
-            </div>
-          </div>
+          ))}
         </div>
+        <p className="meta" style={{ marginTop: 10 }}>
+          {currentPlatformInfo.spec} · <span className={`pill ${currentPlatformInfo.tone}`} style={{ marginLeft: 4 }}>{currentPlatformInfo.status}</span>
+        </p>
+      </section>
 
-        <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
-          <span className={`badge ${currentPlatformInfo.badgeClass}`}>
-            Status: {currentAdapter?.statusLabel || currentPlatformInfo.badge}
-          </span>
-        </div>
-      </div>
-
-      {/* Transformed Platform Output Container */}
-      <div style={{ background: 'rgba(15, 23, 42, 0.7)', border: '1px solid var(--border-subtle)', borderRadius: 'var(--radius-lg)', padding: '24px', display: 'flex', flexDirection: 'column', gap: '20px' }}>
-        
-        {/* ==================================================== */}
-        {/* AMAZON SP-API LISTINGS POC WORKFLOW                   */}
-        {/* Master Product → Product Type → Schema → Validation → Sandbox PUT */}
-        {/* ==================================================== */}
-        {activePlatformTab === 'amazon' && (
-          <div style={{ display: 'flex', flexDirection: 'column', gap: '20px' }}>
-            
-            {/* Pipeline Header with Sandbox Status */}
-            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: '12px' }}>
+      {/* ---------- Amazon: the deep workflow, but progressively disclosed ---------- */}
+      {activePlatformTab === 'amazon' && (
+        <>
+          <section className="surface" style={{ padding: 'var(--s5)' }}>
+            <div className="section-head">
               <div>
-                <h3 style={{ fontSize: '1.2rem', color: '#FFB84D', margin: 0, display: 'flex', alignItems: 'center', gap: '8px' }}>
-                  <Boxes size={20} color="#FF9900" />
-                  Amazon SP-API Listings Items Proof-of-Concept
-                </h3>
-                <div style={{ fontSize: '0.8rem', color: '#94A3B8', marginTop: '4px' }}>
-                  Interactive 4-Step SP-API Schema Verification Engine (EU/India Sandbox: <code>https://sandbox.sellingpartnerapi-eu.amazon.com</code>)
+                <h2>Ready to list on Amazon?</h2>
+                <p className="meta" style={{ marginTop: 2 }}>
+                  {validCount} of {totalCount} things Amazon asks for are already on this product
+                </p>
+              </div>
+              <div style={{ minWidth: 180 }}>
+                <div className="track" style={{ height: 5 }}>
+                  <div className="track-fill" style={{ transform: `scaleX(${validCount / totalCount})` }} />
                 </div>
               </div>
-
-              <div style={{ display: 'flex', gap: '8px', alignItems: 'center', flexWrap: 'wrap' }}>
-                <button 
-                  onClick={handleVerifyAmazonSandbox}
-                  disabled={isVerifyingAmazon}
-                  className="btn btn-secondary" 
-                  style={{ fontSize: '0.75rem', padding: '6px 12px', display: 'flex', alignItems: 'center', gap: '6px' }}
-                >
-                  <Zap size={14} className={isVerifyingAmazon ? 'animate-spin' : ''} color="#FF9900" />
-                  {isVerifyingAmazon ? 'Verifying Sandbox...' : 'Re-verify SP-API Sandbox'}
-                </button>
-                <span className={amazonVerification?.verified ? "badge badge-emerald" : "badge badge-amber"}>
-                  {amazonVerification?.verified ? "🟢 SP-API Sandbox Verified" : "Sandbox Authenticated"}
-                </span>
-              </div>
             </div>
 
-            {/* Sandbox Verification Diagnostic Pill */}
-            {amazonVerification && (
-              <div style={{
-                background: amazonVerification.verified ? 'rgba(16, 185, 129, 0.08)' : 'rgba(239, 68, 68, 0.08)',
-                border: `1px solid ${amazonVerification.verified ? 'rgba(16, 185, 129, 0.3)' : 'rgba(239, 68, 68, 0.3)'}`,
-                borderRadius: 'var(--radius-md)',
-                padding: '12px 16px',
-                fontSize: '0.75rem',
-                display: 'grid',
-                gridTemplateColumns: 'repeat(auto-fit, minmax(200px, 1fr))',
-                gap: '8px',
-                color: '#CBD5E1'
-              }}>
-                <div><strong>Host:</strong> {amazonVerification.sandboxHost}</div>
-                <div><strong>Auth:</strong> {amazonVerification.credentialAudit?.tokenExchange}</div>
-                <div><strong>Endpoint:</strong> {amazonVerification.endpointTested}</div>
-                <div><strong>Latency:</strong> {amazonVerification.latencyMs}ms</div>
+            <div style={{ display: 'flex', flexDirection: 'column', gap: 2 }}>
+              {validationChecks.map(check => (
+                <div key={check.id} className="row" style={{ paddingTop: 10, paddingBottom: 10 }}>
+                  <span style={{
+                    width: 5, height: 5, borderRadius: '50%', flexShrink: 0,
+                    background: check.valid ? 'var(--ok)' : 'var(--stop)'
+                  }} />
+                  <span style={{ fontSize: '0.875rem', width: 150, flexShrink: 0 }}>{check.label}</span>
+                  <span className="meta" style={{ flex: 1, minWidth: 0, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+                    {String(check.value)}
+                  </span>
+                  <span className="meta" style={{ flexShrink: 0 }}>{check.rule}</span>
+                </div>
+              ))}
+            </div>
+          </section>
+
+          <section className="surface" style={{ padding: 'var(--s5)' }}>
+            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', gap: 'var(--s4)', flexWrap: 'wrap' }}>
+              <div>
+                <h2 style={{ fontSize: '1.0625rem' }}>Send it to Amazon's test catalogue</h2>
+                <p className="meta" style={{ marginTop: 3, lineHeight: 1.5 }}>
+                  Sends the listing to Amazon's sandbox, which behaves like production but never touches
+                  a live catalogue. A real listing cannot be created from here.
+                </p>
+              </div>
+              <button
+                onClick={handleSubmitListing}
+                disabled={isSubmittingListing}
+                className="btn btn-primary"
+              >
+                <Send size={15} /> {isSubmittingListing ? 'Sending' : 'Send to sandbox'}
+              </button>
+            </div>
+
+            {listingSubmissionResult && (
+              <div className="surface-sunken" style={{ marginTop: 'var(--s4)', padding: 'var(--s4)' }}>
+                <p style={{ fontSize: '0.9375rem', fontWeight: 500 }}>
+                  {listingSubmissionResult.status === 'ACCEPTED'
+                    ? 'Amazon accepted the listing in its sandbox'
+                    : 'Listing is ready to export'}
+                </p>
+                <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(200px, 1fr))', gap: 'var(--s3)', marginTop: 'var(--s3)' }}>
+                  <div>
+                    <p className="eyebrow">Product</p>
+                    <p className="mono" style={{ marginTop: 2, fontSize: '0.8125rem' }}>{listingSubmissionResult.sku}</p>
+                  </div>
+                  <div>
+                    <p className="eyebrow">Submission</p>
+                    <p className="mono" style={{ marginTop: 2, fontSize: '0.8125rem' }}>
+                      {listingSubmissionResult.submissionId || 'f1dc2914-75dd-11ea-bc55-0242ac130003'}
+                    </p>
+                  </div>
+                  <div>
+                    <p className="eyebrow">Mode</p>
+                    <p style={{ marginTop: 2, fontSize: '0.8125rem' }}>Sandbox, production blocked</p>
+                  </div>
+                </div>
+
+                {onNavigateToCrm && (
+                  <button onClick={() => onNavigateToCrm(selectedProduct)} className="btn btn-primary btn-sm" style={{ marginTop: 'var(--s4)' }}>
+                    Tell your customers it is live
+                  </button>
+                )}
               </div>
             )}
+          </section>
 
-            {/* Step 1 & 2: Amazon Product Type & Required Attributes Selector */}
-            <div style={{ 
-              background: '#0B0F19', 
-              border: '1px solid rgba(255, 153, 0, 0.25)', 
-              borderRadius: 'var(--radius-md)', 
-              padding: '18px',
-              display: 'flex',
-              flexDirection: 'column',
-              gap: '14px'
-            }}>
-              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: '10px' }}>
-                <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
-                  <span className="badge badge-amber" style={{ fontSize: '0.7rem' }}>Step 1: Product Type</span>
-                  <span style={{ fontWeight: 700, fontSize: '0.9rem', color: '#F8FAFC' }}>
-                    Select SP-API Product Type Definition
-                  </span>
-                </div>
-                <div style={{ fontSize: '0.75rem', color: 'var(--text-muted)' }}>
-                  Marketplace: <strong>Amazon.in (A21TJRUUN4KGV)</strong>
-                </div>
-              </div>
-
-              {/* Product Type Buttons */}
-              <div style={{ display: 'flex', gap: '8px', flexWrap: 'wrap' }}>
-                {availableProductTypes.map(pt => {
-                  const isSelected = selectedProductType === pt.name;
-                  return (
+          {/* Technical specifics, available but out of the way */}
+          <details className="model-notes">
+            <summary>
+              <span>Product type and API details</span>
+              <ChevronDown size={14} />
+            </summary>
+            <div style={{ paddingTop: 12, display: 'flex', flexDirection: 'column', gap: 'var(--s4)' }}>
+              <div>
+                <p className="eyebrow">Category</p>
+                <div className="segmented" style={{ marginTop: 8 }}>
+                  {availableProductTypes.map(pt => (
                     <button
                       key={pt.name}
                       onClick={() => setSelectedProductType(pt.name)}
-                      style={{
-                        background: isSelected ? 'rgba(255, 153, 0, 0.2)' : 'rgba(255, 255, 255, 0.04)',
-                        border: isSelected ? '1px solid #FF9900' : '1px solid var(--border-subtle)',
-                        color: isSelected ? '#FFB84D' : 'var(--text-secondary)',
-                        padding: '6px 14px',
-                        borderRadius: 'var(--radius-full)',
-                        fontSize: '0.8rem',
-                        fontWeight: isSelected ? 700 : 500,
-                        cursor: 'pointer',
-                        transition: 'all var(--transition-fast)'
-                      }}
+                      className={`segment${selectedProductType === pt.name ? ' segment-active' : ''}`}
                     >
                       {pt.displayName || pt.name}
                     </button>
-                  );
-                })}
-              </div>
-
-              <div style={{ fontSize: '0.75rem', color: '#94A3B8', display: 'flex', alignItems: 'center', gap: '6px' }}>
-                <Info size={13} color="#FF9900" />
-                Targeting SP-API Schema for <code>{selectedProductType}</code>. 11 critical attributes required for buyable listing status.
-              </div>
-            </div>
-
-            {/* Step 3: Required Attributes Validation Engine */}
-            <div style={{ 
-              background: '#0B0F19', 
-              border: '1px solid rgba(255, 255, 255, 0.08)', 
-              borderRadius: 'var(--radius-md)', 
-              padding: '18px',
-              display: 'flex',
-              flexDirection: 'column',
-              gap: '14px'
-            }}>
-              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: '10px' }}>
-                <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
-                  <span className="badge badge-brand" style={{ fontSize: '0.7rem' }}>Step 2: Attribute Validation</span>
-                  <span style={{ fontWeight: 700, fontSize: '0.9rem', color: '#F8FAFC' }}>
-                    Master Product Validation Matrix ({selectedProduct.title})
-                  </span>
-                </div>
-                <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
-                  <span className={`badge ${isAllValid ? 'badge-emerald' : 'badge-amber'}`} style={{ fontSize: '0.75rem' }}>
-                    {validCount} / {totalCount} Attributes Passed ({Math.round((validCount / totalCount) * 100)}%)
-                  </span>
+                  ))}
                 </div>
               </div>
 
-              {/* Validation Grid */}
-              <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(280px, 1fr))', gap: '10px' }}>
-                {validationChecks.map(check => (
-                  <div 
-                    key={check.id}
-                    style={{
-                      background: 'rgba(255, 255, 255, 0.02)',
-                      border: check.valid ? '1px solid rgba(16, 185, 129, 0.25)' : '1px solid rgba(239, 68, 68, 0.3)',
-                      borderRadius: 'var(--radius-sm)',
-                      padding: '10px 12px',
-                      display: 'flex',
-                      flexDirection: 'column',
-                      gap: '4px'
-                    }}
-                  >
-                    <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-                      <span style={{ fontSize: '0.8rem', fontWeight: 600, color: '#E2E8F0' }}>
-                        {check.label}
-                      </span>
-                      {check.valid ? (
-                        <span style={{ fontSize: '0.7rem', color: '#10B981', display: 'flex', alignItems: 'center', gap: '2px', fontWeight: 700 }}>
-                          <CheckCircle2 size={12} /> PASS
-                        </span>
-                      ) : (
-                        <span style={{ fontSize: '0.7rem', color: '#EF4444', display: 'flex', alignItems: 'center', gap: '2px', fontWeight: 700 }}>
-                          <AlertCircle size={12} /> MISSING
-                        </span>
-                      )}
-                    </div>
-                    <div style={{ fontSize: '0.75rem', color: '#94A3B8', fontFamily: 'var(--font-mono)', textOverflow: 'ellipsis', overflow: 'hidden', whiteSpace: 'nowrap' }}>
-                      Mapped: {String(check.value)}
-                    </div>
-                    <div style={{ fontSize: '0.7rem', color: 'var(--text-muted)' }}>
-                      Rule: {check.rule}
-                    </div>
-                  </div>
-                ))}
-              </div>
-            </div>
-
-            {/* Step 4: Sandbox Publish / Test Action Card */}
-            <div style={{ 
-              background: 'rgba(255, 153, 0, 0.04)', 
-              border: '1px solid rgba(255, 153, 0, 0.3)', 
-              borderRadius: 'var(--radius-md)', 
-              padding: '20px',
-              display: 'flex',
-              flexDirection: 'column',
-              gap: '16px'
-            }}>
-              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: '12px' }}>
-                <div>
-                  <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
-                    <span className="badge badge-amber" style={{ fontSize: '0.7rem' }}>Step 3: Sandbox Test</span>
-                    <h4 style={{ margin: 0, fontSize: '1rem', color: '#FFB84D' }}>
-                      Execute SP-API Listings Items PUT (Sandbox POC)
-                    </h4>
-                  </div>
-                  <div style={{ fontSize: '0.78rem', color: '#CBD5E1', marginTop: '4px' }}>
-                    Sends authenticated PUT request to <code>/listings/2021-08-01/items/SANDBOX_SELLER_ID/{selectedProduct.sku}</code> using LWA token.
-                  </div>
-                </div>
-
-                <div style={{ display: 'flex', gap: '10px', flexWrap: 'wrap' }}>
-                  <button
-                    onClick={handleSubmitListing}
-                    disabled={isSubmittingListing}
-                    className="btn btn-primary"
-                    style={{ background: '#FF9900', borderColor: '#FF9900', color: '#0B0F19', fontWeight: 700 }}
-                  >
-                    {isSubmittingListing ? (
-                      <>
-                        <Zap size={16} className="animate-spin" /> Submitting to SP-API Sandbox...
-                      </>
-                    ) : (
-                      <>
-                        <Send size={16} /> Submit to SP-API Sandbox (PUT)
-                      </>
-                    )}
-                  </button>
-                </div>
+              <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap' }}>
+                <button onClick={handleVerifyAmazonSandbox} disabled={isVerifyingAmazon} className="btn btn-secondary btn-sm">
+                  {isVerifyingAmazon ? 'Checking' : 'Re-check sandbox connection'}
+                </button>
+                <span className={`pill ${amazonVerification?.verified ? 'pill-ok' : 'pill-quiet'}`}>
+                  {amazonVerification?.verified ? 'Sandbox verified' : 'Sandbox not yet verified'}
+                </span>
               </div>
 
-              {/* Submission Result Display */}
-              {listingSubmissionResult && (
-                <div style={{
-                  background: listingSubmissionResult.status === 'ACCEPTED' ? 'rgba(16, 185, 129, 0.1)' : 'rgba(245, 158, 11, 0.1)',
-                  border: `1px solid ${listingSubmissionResult.status === 'ACCEPTED' ? '#10B981' : '#F59E0B'}`,
-                  borderRadius: 'var(--radius-sm)',
-                  padding: '16px',
-                  display: 'flex',
-                  flexDirection: 'column',
-                  gap: '12px'
-                }}>
-                  <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: '8px' }}>
-                    <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
-                      <CheckCircle2 size={20} color={listingSubmissionResult.status === 'ACCEPTED' ? '#10B981' : '#F59E0B'} />
-                      <strong style={{ color: '#FFFFFF', fontSize: '0.95rem' }}>
-                        {listingSubmissionResult.status === 'ACCEPTED' 
-                          ? 'Amazon SP-API Sandbox Listing Submission Accepted!' 
-                          : 'SP-API Sandbox Verified • Export-Ready Payload Generated'}
-                      </strong>
-                    </div>
-                    <span className={listingSubmissionResult.status === 'ACCEPTED' ? "badge badge-emerald" : "badge badge-amber"}>
-                      Status: {listingSubmissionResult.status || 'ACCEPTED'}
-                    </span>
-                  </div>
-
-                  <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(200px, 1fr))', gap: '8px', fontSize: '0.78rem', color: '#CBD5E1' }}>
-                    <div>SKU: <code>{listingSubmissionResult.sku}</code></div>
-                    <div>Submission ID: <code>{listingSubmissionResult.submissionId || 'f1dc2914-75dd-11ea-bc55-0242ac130003'}</code></div>
-                    <div>Source: <code>{listingSubmissionResult.source}</code></div>
-                    <div>Mode: <strong>SANDBOX (Production Blocked)</strong></div>
-                  </div>
-
-                  <div style={{ fontSize: '0.75rem', color: '#FCD34D', background: 'rgba(0,0,0,0.3)', padding: '8px 12px', borderRadius: '4px' }}>
-                    🛡️ <strong>Safeguard Active:</strong> Strictly restricted to SP-API Sandbox. Production publishing is disarmed to prevent unauthorized live Amazon catalog creation.
-                  </div>
-
-                  {/* Golden Flow Next Step Button */}
-                  {onNavigateToCrm && (
-                    <div style={{ marginTop: '4px', display: 'flex', justifyContent: 'flex-end' }}>
-                      <button
-                        onClick={() => onNavigateToCrm(selectedProduct)}
-                        className="btn btn-paytm"
-                        style={{ display: 'flex', alignItems: 'center', gap: '8px', fontSize: '0.85rem' }}
-                      >
-                        <span>Golden Flow Step 3: Launch Regional WhatsApp Campaign for this Saree</span>
-                        <ArrowRight size={16} />
-                      </button>
-                    </div>
-                  )}
+              {amazonVerification && (
+                <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(180px, 1fr))', gap: 'var(--s3)' }}>
+                  <div><p className="eyebrow">Host</p><p className="mono" style={{ marginTop: 2, fontSize: '0.75rem' }}>{amazonVerification.sandboxHost}</p></div>
+                  <div><p className="eyebrow">Endpoint</p><p style={{ marginTop: 2, fontSize: '0.75rem' }}>{amazonVerification.endpointTested}</p></div>
+                  <div><p className="eyebrow">Response</p><p className="mono" style={{ marginTop: 2, fontSize: '0.75rem' }}>{amazonVerification.latencyMs} ms</p></div>
                 </div>
               )}
 
-              {/* Toggle to inspect raw JSON payload */}
-              <div>
-                <button
-                  onClick={() => setShowPayloadDetails(!showPayloadDetails)}
-                  style={{
-                    background: 'transparent',
-                    border: 'none',
-                    color: '#FFB84D',
-                    fontSize: '0.8rem',
-                    cursor: 'pointer',
-                    display: 'flex',
-                    alignItems: 'center',
-                    gap: '4px',
-                    padding: 0
-                  }}
-                >
-                  {showPayloadDetails ? <ChevronDown size={14} /> : <ChevronRight size={14} />}
-                  <span>{showPayloadDetails ? 'Hide' : 'Inspect'} Compliant SP-API JSON_LISTINGS_FEED Schema</span>
-                </button>
+              <button
+                onClick={() => setShowPayloadDetails(!showPayloadDetails)}
+                className="btn btn-quiet btn-sm"
+                style={{ alignSelf: 'flex-start' }}
+              >
+                {showPayloadDetails ? <ChevronDown size={14} /> : <ChevronRight size={14} />}
+                {showPayloadDetails ? 'Hide' : 'Show'} the payload Amazon receives
+              </button>
 
-                {showPayloadDetails && (
-                  <div style={{ marginTop: '10px', background: '#070A11', padding: '14px', borderRadius: 'var(--radius-sm)', border: '1px solid rgba(255,255,255,0.06)' }}>
-                    <pre style={{ margin: 0, fontSize: '0.75rem', color: '#CBD5E1', overflowX: 'auto', fontFamily: 'var(--font-mono)' }}>
-                      {JSON.stringify(currentAdapter?.spApiPayload || selectedProduct.platformListings.amazon, null, 2)}
-                    </pre>
-                  </div>
-                )}
-              </div>
-
+              {showPayloadDetails && (
+                <div className="schema">
+                  <pre>{typeof currentPayload === 'string' ? currentPayload : JSON.stringify(currentPayload, null, 2)}</pre>
+                </div>
+              )}
             </div>
+          </details>
+        </>
+      )}
 
+      {/* ---------- Other marketplaces ---------- */}
+      {activePlatformTab !== 'amazon' && (
+        <section>
+          <div className="section-head">
+            <div>
+              <h2>{platformMeta[activePlatformTab].name} listing</h2>
+              <p className="meta" style={{ marginTop: 2 }}>{currentPlatformInfo.spec}</p>
+            </div>
+            <button onClick={handleExportCSV} className="btn btn-secondary btn-sm">
+              <Download size={14} /> Download
+            </button>
           </div>
-        )}
-
-        {/* Flipkart FMS View */}
-        {activePlatformTab === 'flipkart' && (
-          <div style={{ display: 'flex', flexDirection: 'column', gap: '16px' }}>
-            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-              <h3 style={{ fontSize: '1.1rem', color: '#38BDF8' }}>Flipkart FMS Listing Specification (v3)</h3>
-              <span className="badge badge-brand">STAGED (72h Partner Verification)</span>
-            </div>
-            <div style={{ background: '#0B0F19', padding: '16px', borderRadius: 'var(--radius-sm)', border: '1px solid rgba(255,255,255,0.06)' }}>
-              <pre style={{ margin: 0, fontSize: '0.8rem', color: '#CBD5E1', overflowX: 'auto', fontFamily: 'var(--font-mono)' }}>
-                {JSON.stringify(currentAdapter?.fmsPayload || selectedProduct.platformListings.flipkart, null, 2)}
-              </pre>
-            </div>
+          <div className="schema">
+            <pre>{typeof currentPayload === 'string' ? currentPayload : JSON.stringify(currentPayload, null, 2)}</pre>
           </div>
-        )}
-
-        {/* Meesho View */}
-        {activePlatformTab === 'meesho' && (
-          <div style={{ display: 'flex', flexDirection: 'column', gap: '16px' }}>
-            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: '8px' }}>
-              <div>
-                <h3 style={{ fontSize: '1.1rem', color: '#F43397' }}>Meesho Supplier Panel Bulk CSV Exporter</h3>
-                <p style={{ fontSize: '0.8rem', color: 'var(--text-muted)' }}>
-                  Honest Architecture: Meesho does not provide public REST APIs. DukaanQuest produces 100% compliant Supplier Panel flatfiles.
-                </p>
-              </div>
-              <span className="badge badge-emerald">UPLOAD READY</span>
-            </div>
-            <div style={{ background: '#0B0F19', padding: '16px', borderRadius: 'var(--radius-sm)', border: '1px solid rgba(255,255,255,0.06)' }}>
-              <div style={{ fontSize: '0.85rem', color: '#94A3B8', marginBottom: '8px' }}>Generated CSV Stream Preview:</div>
-              <pre style={{ margin: 0, fontSize: '0.8rem', color: '#A7F3D0', overflowX: 'auto', fontFamily: 'var(--font-mono)' }}>
-                {currentAdapter?.bulkUploadCSV || "SKU,Product Name,Category,GST %,Price,MRP,Stock\nSG-01,Royal Kanjeevaram Saree,Saree,5%,4850,6999,14"}
-              </pre>
-            </div>
-          </div>
-        )}
-
-        {/* Myntra View */}
-        {activePlatformTab === 'myntra' && (
-          <div style={{ display: 'flex', flexDirection: 'column', gap: '16px' }}>
-            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-              <h3 style={{ fontSize: '1.1rem', color: '#FF3F6C' }}>Myntra MMIP Partner Catalog Submission</h3>
-              <span className="badge badge-amber">PARTNER STAGED</span>
-            </div>
-            <div style={{ background: '#0B0F19', padding: '16px', borderRadius: 'var(--radius-sm)', border: '1px solid rgba(255,255,255,0.06)' }}>
-              <pre style={{ margin: 0, fontSize: '0.8rem', color: '#CBD5E1', overflowX: 'auto', fontFamily: 'var(--font-mono)' }}>
-                {JSON.stringify(currentAdapter?.mmipPayload || selectedProduct.platformListings.myntra, null, 2)}
-              </pre>
-            </div>
-          </div>
-        )}
-
-        {/* Nykaa View */}
-        {activePlatformTab === 'nykaa' && (
-          <div style={{ display: 'flex', flexDirection: 'column', gap: '16px' }}>
-            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-              <h3 style={{ fontSize: '1.1rem', color: '#FC2779' }}>Nykaa Fashion Brand Association Dossier</h3>
-              <span className="badge badge-rose">ELIGIBILITY WORKFLOW</span>
-            </div>
-            <div style={{ background: '#0B0F19', padding: '16px', borderRadius: 'var(--radius-sm)', border: '1px solid rgba(255,255,255,0.06)' }}>
-              <pre style={{ margin: 0, fontSize: '0.8rem', color: '#CBD5E1', overflowX: 'auto', fontFamily: 'var(--font-mono)' }}>
-                {JSON.stringify(currentAdapter?.brandDossier || { brand: "Shree Ganesh", category: "Handloom Sarees" }, null, 2)}
-              </pre>
-            </div>
-          </div>
-        )}
-
-      </div>
+          {activePlatformTab === 'meesho' && (
+            <p className="meta" style={{ marginTop: 12 }}>
+              Meesho does not offer a public API, so this is a flatfile you upload to their supplier panel.
+            </p>
+          )}
+        </section>
+      )}
     </div>
   );
 }
-

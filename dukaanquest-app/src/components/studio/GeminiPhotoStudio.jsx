@@ -1,23 +1,16 @@
 import React, { useState, useRef } from 'react';
 import { 
   Sparkles, 
-  Camera, 
   Download, 
-  Layers, 
-  Sliders, 
   Wand2, 
-  Check, 
-  Image as ImageIcon,
-  Zap,
-  Tag,
   Upload,
-  FileImage,
   ArrowRight,
-  Info,
-  CheckCircle2
+  ChevronDown
 } from 'lucide-react';
 import confetti from 'canvas-confetti';
 import * as api from '../../services/api';
+
+const CONFETTI_COLORS = ['#E8A33D', '#F2C179', '#7BB88F'];
 
 export default function GeminiPhotoStudio({ sampleProducts, t, onNavigateToCatalog }) {
   const [selectedProduct, setSelectedProduct] = useState(sampleProducts[0]);
@@ -27,28 +20,27 @@ export default function GeminiPhotoStudio({ sampleProducts, t, onNavigateToCatal
   const [splitPos, setSplitPos] = useState(50);
   const [analysisResult, setAnalysisResult] = useState(null);
   const [uploadedImagePreview, setUploadedImagePreview] = useState(null);
-  const [apiStatus, setApiStatus] = useState(null); // 'live' | 'bridge' | null
+  const [apiStatus, setApiStatus] = useState(null);
+  const [showModelNotes, setShowModelNotes] = useState(false);
   const fileInputRef = useRef(null);
 
-  // Real file upload → Gemini backend
   const handleFileUpload = async (e) => {
     const file = e.target.files?.[0];
     if (!file) return;
 
-    // Show local preview
     const reader = new FileReader();
     reader.onload = (ev) => setUploadedImagePreview(ev.target.result);
     reader.readAsDataURL(file);
 
     setIsProcessing(true);
-    setProcessingStage('Uploading product image to Gemini Vision engine...');
+    setProcessingStage('Reading the fabric and stitching of your photo');
 
     try {
       const formData = new FormData();
       formData.append('image', file);
       formData.append('productContext', selectedProduct?.title || 'Apparel / Saree');
 
-      setProcessingStage('Gemini Pro Vision: analyzing fabric contours & texture...');
+      setProcessingStage('Separating fabric from the shop background');
 
       const result = await api.uploadAndEnhanceImage(formData);
 
@@ -57,37 +49,27 @@ export default function GeminiPhotoStudio({ sampleProducts, t, onNavigateToCatal
         setApiStatus(result.liveAPI ? 'live' : 'bridge');
         setProcessingStage('');
         setIsProcessing(false);
-        confetti({
-          particleCount: 50,
-          spread: 70,
-          origin: { y: 0.7 },
-          colors: ['#8B5CF6', '#EC4899', '#38BDF8']
-        });
+        confetti({ particleCount: 50, spread: 70, origin: { y: 0.7 }, colors: CONFETTI_COLORS });
       } else {
         throw new Error('API returned unsuccessful');
       }
     } catch (err) {
       console.warn('Upload API error, using product context enhance:', err);
-      // Fallback: call enhance endpoint with no image
       await handleRunGemini();
     }
   };
 
-  // Gemini enhance via base64 or context-only
   const handleRunGemini = async () => {
     setIsProcessing(true);
-    setProcessingStage('Analyzing product contours with Gemini Vision...');
+    setProcessingStage('Reading the fabric and stitching of your photo');
 
     try {
-      // Stage 1
       await new Promise(r => setTimeout(r, 500));
-      setProcessingStage('Isolating fabric & removing shop background...');
+      setProcessingStage('Separating fabric from the shop background');
 
-      // Call backend enhance API
       const result = await api.enhanceImageWithGemini('', selectedProduct?.title || 'Kanjeevaram Silk Saree');
 
-      // Stage 2
-      setProcessingStage('Synthesizing #FFFFFF studio lighting & soft shadows...');
+      setProcessingStage('Writing the marketplace description');
       await new Promise(r => setTimeout(r, 600));
 
       if (result?.success !== false) {
@@ -95,22 +77,16 @@ export default function GeminiPhotoStudio({ sampleProducts, t, onNavigateToCatal
         setApiStatus(result.liveAPI ? 'live' : 'bridge');
       }
 
-      setProcessingStage('Generating Myntra lifestyle drape & macro detail...');
+      setProcessingStage('Building the alternate views');
       await new Promise(r => setTimeout(r, 500));
 
       setIsProcessing(false);
       setProcessingStage('');
-      confetti({
-        particleCount: 50,
-        spread: 70,
-        origin: { y: 0.7 },
-        colors: ['#8B5CF6', '#EC4899', '#38BDF8']
-      });
+      confetti({ particleCount: 50, spread: 70, origin: { y: 0.7 }, colors: CONFETTI_COLORS });
     } catch (err) {
       console.warn('Gemini enhance error:', err);
       setIsProcessing(false);
       setProcessingStage('');
-      // Set default fallback analysis
       setAnalysisResult({
         productTitle: "SHREE GANESH Women's Kanjeevaram Pure Silk Saree with Blouse Piece (Maroon Gold)",
         fabricClassification: "100% Pure Mulberry Silk with metallic Gold Zari border",
@@ -130,389 +106,202 @@ export default function GeminiPhotoStudio({ sampleProducts, t, onNavigateToCatal
 
   const currentEnhancedImage = selectedProduct.images[activeAssetTab] || selectedProduct.images.amazonMain;
 
+  const assets = [
+    { id: 'amazonMain', name: 'Amazon main', note: 'Pure white background', img: selectedProduct.images.amazonMain },
+    { id: 'myntraLifestyle', name: 'Myntra lifestyle', note: 'On-model drape', img: selectedProduct.images.myntraLifestyle },
+    { id: 'fabricDetail', name: 'Weave detail', note: 'Zari close-up', img: selectedProduct.images.fabricDetail },
+    { id: 'dimensionGraphic', name: 'Measurements', note: 'Length and blouse', img: selectedProduct.images.dimensionGraphic }
+  ];
+
   return (
-    <div className="glass-card" style={{ padding: '28px', display: 'flex', flexDirection: 'column', gap: '24px' }}>
-      {/* Header */}
-      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', flexWrap: 'wrap', gap: '16px' }}>
-        <div>
-          <div style={{ display: 'flex', alignItems: 'center', gap: '10px', marginBottom: '6px' }}>
-            <div style={{ width: '36px', height: '36px', borderRadius: '10px', background: 'rgba(139, 92, 246, 0.15)', border: '1px solid rgba(139, 92, 246, 0.3)', display: 'flex', alignItems: 'center', justifyContent: 'center', color: '#8B5CF6' }}>
-              <Sparkles size={20} />
-            </div>
-            <h2 style={{ fontSize: '1.4rem' }}>{t.studioTitle}</h2>
-            <span className="badge badge-emerald" style={{ fontSize: '0.7rem' }}>🟢 LIVE: gemini-3.1-flash-lite (Vision)</span>
-            <span className="badge badge-amber" style={{ fontSize: '0.7rem' }}>🟡 STAGED: gemini-3.1-flash-image (Catalog Asset)</span>
-            <span className="badge badge-brand" style={{ fontSize: '0.65rem' }}>Golden Flow Step 1 of 5</span>
-          </div>
-          <p style={{ color: 'var(--text-secondary)', fontSize: '0.9rem', maxWidth: '680px' }}>
-            {t.studioSubtitle}
-          </p>
-          <div style={{ marginTop: '6px', fontSize: '0.75rem', color: '#94A3B8', display: 'flex', alignItems: 'center', gap: '6px' }}>
-            <Info size={13} color="#A5B4FC" />
-            <span>Fabric analysis and attribute extraction are <strong>LIVE</strong>. Transformed views display staged catalog assets (Google Cloud project requires billing enabled for live image generative quota; no fake AI images generated).</span>
+    <div className="stack">
+      {/* Product picker + actions, one calm bar */}
+      <div className="surface" style={{ padding: 'var(--s4)', display: 'flex', gap: 'var(--s4)', alignItems: 'center', flexWrap: 'wrap', justifyContent: 'space-between' }}>
+        <div style={{ display: 'flex', alignItems: 'center', gap: 'var(--s3)', minWidth: 0 }}>
+          <img
+            src={selectedProduct.images.raw}
+            alt=""
+            style={{ width: 44, height: 44, borderRadius: 'var(--r-sm)', objectFit: 'cover', flexShrink: 0 }}
+          />
+          <div style={{ minWidth: 0 }}>
+            <p style={{ fontSize: '0.9375rem', fontWeight: 500 }}>{t.studioTitle}</p>
+            <select
+              value={selectedProduct.id}
+              onChange={(e) => {
+                const p = sampleProducts.find(x => x.id === e.target.value);
+                if (p) setSelectedProduct(p);
+                setAnalysisResult(null);
+                setApiStatus(null);
+              }}
+              className="field"
+              style={{ marginTop: 4, padding: '4px 8px', fontSize: '0.8125rem', maxWidth: 280 }}
+              aria-label="Choose a product"
+            >
+              {sampleProducts.map(p => (
+                <option key={p.id} value={p.id}>{p.title} (₹{p.basePrice.toLocaleString()})</option>
+              ))}
+            </select>
           </div>
         </div>
 
-        <div style={{ display: 'flex', gap: '8px' }}>
-          {/* File Upload Button */}
-          <input
-            ref={fileInputRef}
-            type="file"
-            accept="image/*"
-            onChange={handleFileUpload}
-            style={{ display: 'none' }}
-          />
-          <button
-            onClick={() => fileInputRef.current?.click()}
-            disabled={isProcessing}
-            className="btn btn-secondary"
-          >
-            <Upload size={16} /> Upload Photo
+        <div style={{ display: 'flex', gap: 8 }}>
+          <input ref={fileInputRef} type="file" accept="image/*" onChange={handleFileUpload} style={{ display: 'none' }} />
+          <button onClick={() => fileInputRef.current?.click()} disabled={isProcessing} className="btn btn-secondary btn-sm">
+            <Upload size={14} /> Upload photo
           </button>
-
-          <button 
-            onClick={handleRunGemini} 
-            disabled={isProcessing}
-            className="btn btn-primary"
-          >
+          <button onClick={handleRunGemini} disabled={isProcessing} className="btn btn-primary">
             {isProcessing ? (
-              <>
-                <Zap size={16} className="animate-spin" /> Processing AI Studio...
-              </>
+              <>Working...</>
             ) : (
-              <>
-                <Wand2 size={16} /> Re-Enhance with Gemini
-              </>
+              <><Wand2 size={15} /> Re-enhance with Gemini</>
             )}
           </button>
         </div>
       </div>
 
-      {/* Product Selector Carousel */}
-      <div style={{ display: 'flex', gap: '12px', overflowX: 'auto', paddingBottom: '8px' }}>
-        {sampleProducts.map((prod) => {
-          const isSelected = prod.id === selectedProduct.id;
-          return (
-            <div
-              key={prod.id}
-              onClick={() => { setSelectedProduct(prod); setAnalysisResult(null); setApiStatus(null); }}
-              style={{
-                minWidth: '220px',
-                background: isSelected ? 'rgba(99, 102, 241, 0.15)' : 'rgba(255, 255, 255, 0.03)',
-                border: isSelected ? '1px solid var(--brand-primary)' : '1px solid var(--border-subtle)',
-                borderRadius: 'var(--radius-md)',
-                padding: '12px',
-                cursor: 'pointer',
-                display: 'flex',
-                alignItems: 'center',
-                gap: '12px',
-                transition: 'all var(--transition-fast)'
-              }}
-            >
-              <img 
-                src={prod.images.raw} 
-                alt={prod.title} 
-                style={{ width: '48px', height: '48px', borderRadius: '8px', objectFit: 'cover' }} 
-              />
-              <div style={{ overflow: 'hidden' }}>
-                <div style={{ fontWeight: 600, fontSize: '0.85rem', whiteSpace: 'nowrap', textOverflow: 'ellipsis', overflow: 'hidden' }}>
-                  {prod.title}
-                </div>
-                <div style={{ color: '#10B981', fontSize: '0.8rem', fontWeight: 700 }}>
-                  ₹{prod.basePrice.toLocaleString()}
-                </div>
-              </div>
-            </div>
-          );
-        })}
-      </div>
-
-      {/* Processing Banner */}
       {isProcessing && (
-        <div style={{ background: 'rgba(99, 102, 241, 0.1)', border: '1px solid var(--brand-primary)', borderRadius: 'var(--radius-md)', padding: '14px 20px', display: 'flex', alignItems: 'center', gap: '14px' }}>
-          <div style={{ width: '12px', height: '12px', borderRadius: '50%', background: '#6366F1' }} className="animate-ping" />
-          <span style={{ fontSize: '0.9rem', color: '#E2E8F0', fontFamily: 'var(--font-mono)' }}>
-            {processingStage}
-          </span>
-        </div>
+        <p className="meta" style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+          <span className="conn-dot conn-live pulse-dot" />
+          {processingStage}
+        </p>
       )}
 
-      {/* Studio Workspace Grid */}
-      <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(320px, 1fr))', gap: '24px', alignItems: 'start' }}>
-        
-        {/* Left: Interactive Before / After Split Viewer */}
-        <div style={{ background: 'rgba(3, 7, 18, 0.6)', border: '1px solid var(--border-subtle)', borderRadius: 'var(--radius-lg)', padding: '20px', display: 'flex', flexDirection: 'column', gap: '16px' }}>
-          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-            <span style={{ fontWeight: 700, fontSize: '0.95rem', display: 'flex', alignItems: 'center', gap: '6px' }}>
-              <Sliders size={16} /> Interactive Before / After Split
-            </span>
-            <div style={{ display: 'flex', gap: '8px' }}>
-              <span className="badge badge-amber" style={{ fontSize: '0.65rem' }}>Raw Phone Photo</span>
-              <span className="badge badge-emerald" style={{ fontSize: '0.65rem' }}>Gemini Studio</span>
-            </div>
-          </div>
-
-          {/* Split Container */}
-          <div 
-            style={{ 
-              position: 'relative', 
-              width: '100%', 
-              height: '380px', 
-              borderRadius: 'var(--radius-md)', 
-              overflow: 'hidden',
-              userSelect: 'none',
-              border: '1px solid rgba(255, 255, 255, 0.1)'
-            }}
-          >
-            {/* Background Image: Enhanced */}
-            <img 
-              src={currentEnhancedImage} 
-              alt="Enhanced" 
-              style={{ width: '100%', height: '100%', objectFit: 'cover' }} 
-            />
-
-            {/* Foreground Image: Raw Photo (clipped by splitPos) */}
-            <div 
-              style={{ 
-                position: 'absolute', 
-                top: 0, 
-                left: 0, 
-                width: `${splitPos}%`, 
-                height: '100%', 
-                overflow: 'hidden',
-                borderRight: '2px solid #FFFFFF',
-                boxShadow: '2px 0 10px rgba(0,0,0,0.5)'
-              }}
-            >
-              <img 
-                src={uploadedImagePreview || selectedProduct.images.raw} 
-                alt="Raw Phone Shot" 
-                style={{ height: '100%', objectFit: 'cover', maxWidth: 'none', width: '380px' }} 
+      <div className="studio-grid">
+        {/* The image is the product. Give it the space. */}
+        <figure style={{ margin: 0 }}>
+          <div className="compare">
+            <img src={currentEnhancedImage} alt={`Enhanced ${activeAssetTab} view`} />
+            <div className="compare-before" style={{ width: `${splitPos}%` }}>
+              <img
+                src={uploadedImagePreview || selectedProduct.images.raw}
+                alt="Original shop photo"
+                style={{ height: '100%', objectFit: 'cover', maxWidth: 'none', width: 460 }}
               />
-              <span style={{ position: 'absolute', bottom: '12px', left: '12px', background: 'rgba(0,0,0,0.7)', padding: '3px 8px', borderRadius: '4px', fontSize: '0.7rem', color: '#FCD34D' }}>
-                📷 Raw Shop Shot
-              </span>
             </div>
-
-            <span style={{ position: 'absolute', bottom: '12px', right: '12px', background: 'rgba(0,0,0,0.7)', padding: '3px 8px', borderRadius: '4px', fontSize: '0.7rem', color: '#6EE7B7' }}>
-              ✨ Gemini 4K Studio
-            </span>
-
-            {/* Slider Control Line */}
-            <input 
-              type="range" 
-              min="0" 
-              max="100" 
-              value={splitPos} 
+            <span className="compare-tag compare-tag-left">Your photo</span>
+            <span className="compare-tag compare-tag-right">Studio version</span>
+            <input
+              type="range"
+              min="0"
+              max="100"
+              value={splitPos}
               onChange={(e) => setSplitPos(Number(e.target.value))}
-              style={{
-                position: 'absolute',
-                top: 0,
-                left: 0,
-                width: '100%',
-                height: '100%',
-                opacity: 0,
-                cursor: 'ew-resize',
-                zIndex: 10
-              }} 
+              className="compare-range"
+              aria-label="Compare your photo with the studio version"
             />
           </div>
+          <figcaption className="meta" style={{ marginTop: 10, textAlign: 'center' }}>
+            Drag the handle to compare
+          </figcaption>
+        </figure>
 
-          <p style={{ color: 'var(--text-muted)', fontSize: '0.8rem', textAlign: 'center' }}>
-            ↔️ Drag horizontal slider to compare raw phone shot vs Gemini e-commerce output
-          </p>
-        </div>
-
-        {/* Right: The 4 Multi-Channel Output Assets */}
-        <div style={{ display: 'flex', flexDirection: 'column', gap: '16px' }}>
-          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-            <span style={{ fontWeight: 700, fontSize: '0.95rem', display: 'flex', alignItems: 'center', gap: '6px' }}>
-              <Layers size={16} /> 4 E-Commerce Output Variations
-            </span>
-            <button 
-              onClick={() => alert(`Downloading 4K asset bundle (4 images) for SKU: ${selectedProduct.sku}`)}
-              className="btn btn-secondary" 
-              style={{ padding: '6px 14px', fontSize: '0.8rem' }}
-            >
-              <Download size={14} /> Download Asset Bundle
-            </button>
-          </div>
-
-          {/* Asset Tabs */}
-          <div style={{ display: 'grid', gridTemplateColumns: 'repeat(2, 1fr)', gap: '12px' }}>
-            
-            {/* Asset 1: Amazon Main */}
-            <div 
-              onClick={() => setActiveAssetTab('amazonMain')}
-              style={{
-                background: activeAssetTab === 'amazonMain' ? 'rgba(99, 102, 241, 0.15)' : 'rgba(255, 255, 255, 0.02)',
-                border: activeAssetTab === 'amazonMain' ? '1px solid var(--brand-primary)' : '1px solid var(--border-subtle)',
-                borderRadius: 'var(--radius-md)',
-                padding: '12px',
-                cursor: 'pointer',
-                transition: 'all var(--transition-fast)'
-              }}
-            >
-              <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: '8px' }}>
-                <span style={{ fontWeight: 700, fontSize: '0.85rem' }}>1. Amazon Main</span>
-                <span className="badge badge-emerald" style={{ fontSize: '0.65rem' }}>#FFFFFF Pure</span>
-              </div>
-              <img 
-                src={selectedProduct.images.amazonMain} 
-                alt="Amazon Main" 
-                style={{ width: '100%', height: '110px', borderRadius: '6px', objectFit: 'cover' }} 
-              />
-              <span style={{ fontSize: '0.75rem', color: 'var(--text-muted)', display: 'block', marginTop: '6px' }}>
-                Amazon A9 standard 1000x1000px
-              </span>
+        <div style={{ display: 'flex', flexDirection: 'column', gap: 'var(--s5)', minWidth: 0 }}>
+          {/* Asset strip: four outputs, quiet */}
+          <section>
+            <div className="section-head" style={{ marginBottom: 'var(--s3)' }}>
+              <h2 style={{ fontSize: '0.9375rem' }}>What you get</h2>
+              <button
+                onClick={() => alert(`Downloading 4K asset bundle (4 images) for SKU: ${selectedProduct.sku}`)}
+                className="btn btn-quiet btn-sm"
+              >
+                <Download size={13} /> Download all
+              </button>
             </div>
-
-            {/* Asset 2: Myntra Lifestyle */}
-            <div 
-              onClick={() => setActiveAssetTab('myntraLifestyle')}
-              style={{
-                background: activeAssetTab === 'myntraLifestyle' ? 'rgba(99, 102, 241, 0.15)' : 'rgba(255, 255, 255, 0.02)',
-                border: activeAssetTab === 'myntraLifestyle' ? '1px solid var(--brand-primary)' : '1px solid var(--border-subtle)',
-                borderRadius: 'var(--radius-md)',
-                padding: '12px',
-                cursor: 'pointer',
-                transition: 'all var(--transition-fast)'
-              }}
-            >
-              <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: '8px' }}>
-                <span style={{ fontWeight: 700, fontSize: '0.85rem' }}>2. Myntra Lifestyle</span>
-                <span className="badge badge-brand" style={{ fontSize: '0.65rem' }}>On-Model</span>
-              </div>
-              <img 
-                src={selectedProduct.images.myntraLifestyle} 
-                alt="Myntra Lifestyle" 
-                style={{ width: '100%', height: '110px', borderRadius: '6px', objectFit: 'cover' }} 
-              />
-              <span style={{ fontSize: '0.75rem', color: 'var(--text-muted)', display: 'block', marginTop: '6px' }}>
-                Fashion drape ambient look
-              </span>
+            <div className="asset-strip">
+              {assets.map(a => {
+                const active = activeAssetTab === a.id;
+                return (
+                  <button
+                    key={a.id}
+                    onClick={() => setActiveAssetTab(a.id)}
+                    className={`asset${active ? ' asset-active' : ''}`}
+                    aria-pressed={active}
+                  >
+                    {active && <span className="asset-flag" aria-hidden="true" />}
+                    <img src={a.img} alt="" />
+                    <span className="asset-name">{a.name}</span>
+                    <span className="meta">{a.note}</span>
+                  </button>
+                );
+              })}
             </div>
+          </section>
 
-            {/* Asset 3: Fabric Detail */}
-            <div 
-              onClick={() => setActiveAssetTab('fabricDetail')}
-              style={{
-                background: activeAssetTab === 'fabricDetail' ? 'rgba(99, 102, 241, 0.15)' : 'rgba(255, 255, 255, 0.02)',
-                border: activeAssetTab === 'fabricDetail' ? '1px solid var(--brand-primary)' : '1px solid var(--border-subtle)',
-                borderRadius: 'var(--radius-md)',
-                padding: '12px',
-                cursor: 'pointer',
-                transition: 'all var(--transition-fast)'
-              }}
-            >
-              <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: '8px' }}>
-                <span style={{ fontWeight: 700, fontSize: '0.85rem' }}>3. Macro Weave Detail</span>
-                <span className="badge badge-amber" style={{ fontSize: '0.65rem' }}>Zari Close-Up</span>
-              </div>
-              <img 
-                src={selectedProduct.images.fabricDetail} 
-                alt="Fabric Detail" 
-                style={{ width: '100%', height: '110px', borderRadius: '6px', objectFit: 'cover' }} 
-              />
-              <span style={{ fontSize: '0.75rem', color: 'var(--text-muted)', display: 'block', marginTop: '6px' }}>
-                Authentic texture proof
-              </span>
-            </div>
-
-            {/* Asset 4: Dimension Graphic */}
-            <div 
-              onClick={() => setActiveAssetTab('dimensionGraphic')}
-              style={{
-                background: activeAssetTab === 'dimensionGraphic' ? 'rgba(99, 102, 241, 0.15)' : 'rgba(255, 255, 255, 0.02)',
-                border: activeAssetTab === 'dimensionGraphic' ? '1px solid var(--brand-primary)' : '1px solid var(--border-subtle)',
-                borderRadius: 'var(--radius-md)',
-                padding: '12px',
-                cursor: 'pointer',
-                transition: 'all var(--transition-fast)'
-              }}
-            >
-              <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: '8px' }}>
-                <span style={{ fontWeight: 700, fontSize: '0.85rem' }}>4. Infographic Spec</span>
-                <span className="badge badge-paytm" style={{ fontSize: '0.65rem' }}>Dimensions</span>
-              </div>
-              <img 
-                src={selectedProduct.images.dimensionGraphic} 
-                alt="Dimensions" 
-                style={{ width: '100%', height: '110px', borderRadius: '6px', objectFit: 'cover' }} 
-              />
-              <span style={{ fontSize: '0.75rem', color: 'var(--text-muted)', display: 'block', marginTop: '6px' }}>
-                Length, blouse & certification
-              </span>
-            </div>
-
-          </div>
-
-          {/* Gemini AI Analysis Results - Live from Backend */}
+          {/* Analysis appears after the user asks for it */}
           {analysisResult ? (
-            <div style={{ background: 'rgba(139, 92, 246, 0.05)', border: '1px solid rgba(139, 92, 246, 0.25)', borderRadius: 'var(--radius-md)', padding: '16px', display: 'flex', flexDirection: 'column', gap: '12px' }}>
-              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-                <span style={{ color: '#A5B4FC', fontWeight: 700, fontSize: '0.9rem' }}>✨ Gemini AI Analysis Result</span>
+            <section className="surface" style={{ padding: 'var(--s4) var(--s5)' }}>
+              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'baseline', gap: 12, flexWrap: 'wrap' }}>
+                <h2 style={{ fontSize: '0.9375rem' }}>What Gemini read</h2>
                 {analysisResult.complianceScore && (
-                  <span className={`badge ${analysisResult.complianceScore >= 90 ? 'badge-emerald' : 'badge-amber'}`}>
-                    Compliance: {analysisResult.complianceScore}/100
-                  </span>
+                  <span className="pill pill-ok">Compliance {analysisResult.complianceScore}/100</span>
                 )}
               </div>
-              
+
               {analysisResult.productTitle && (
-                <div>
-                  <div style={{ fontSize: '0.75rem', color: 'var(--text-muted)', fontWeight: 600, textTransform: 'uppercase', marginBottom: '4px' }}>SEO Title</div>
-                  <div style={{ fontSize: '0.875rem', color: '#E2E8F0', fontWeight: 600 }}>{analysisResult.productTitle}</div>
+                <div style={{ marginTop: 'var(--s4)' }}>
+                  <p className="eyebrow">Listing title</p>
+                  <p style={{ fontSize: '0.9375rem', marginTop: 3 }}>{analysisResult.productTitle}</p>
                 </div>
               )}
 
               {analysisResult.fabricClassification && (
-                <div>
-                  <div style={{ fontSize: '0.75rem', color: 'var(--text-muted)', fontWeight: 600, textTransform: 'uppercase', marginBottom: '4px' }}>Fabric</div>
-                  <div style={{ fontSize: '0.85rem', color: '#FCD34D' }}>{analysisResult.fabricClassification}</div>
+                <div style={{ marginTop: 'var(--s4)' }}>
+                  <p className="eyebrow">Fabric</p>
+                  <p className="meta" style={{ marginTop: 3, color: 'var(--text-2)' }}>{analysisResult.fabricClassification}</p>
                 </div>
               )}
 
               {analysisResult.amazonBullets && (
-                <div>
-                  <div style={{ fontSize: '0.75rem', color: 'var(--text-muted)', fontWeight: 600, textTransform: 'uppercase', marginBottom: '4px' }}>Amazon A9 Bullets</div>
-                  <ul style={{ margin: 0, paddingLeft: '16px', display: 'flex', flexDirection: 'column', gap: '4px' }}>
+                <div style={{ marginTop: 'var(--s4)' }}>
+                  <p className="eyebrow">How marketplaces would list it</p>
+                  <ul style={{ marginTop: 6, paddingLeft: 18, display: 'flex', flexDirection: 'column', gap: 5 }}>
                     {analysisResult.amazonBullets.map((b, i) => (
-                      <li key={i} style={{ fontSize: '0.8rem', color: 'var(--text-secondary)' }}>{b}</li>
+                      <li key={i} className="meta" style={{ color: 'var(--text-2)' }}>{b}</li>
                     ))}
                   </ul>
                 </div>
               )}
 
               {analysisResult.recommendations && (
-                <div style={{ fontSize: '0.8rem', color: '#6EE7B7', background: 'rgba(16, 185, 129, 0.08)', padding: '8px 12px', borderRadius: 'var(--radius-sm)' }}>
-                  💡 {analysisResult.recommendations}
-                </div>
+                <p className="meta" style={{ marginTop: 'var(--s4)', paddingTop: 'var(--s3)', borderTop: '1px solid var(--line-faint)' }}>
+                  {analysisResult.recommendations}
+                </p>
               )}
-            </div>
+            </section>
           ) : (
-            <div style={{ background: 'rgba(255, 255, 255, 0.02)', border: '1px solid var(--border-subtle)', borderRadius: 'var(--radius-sm)', padding: '12px 16px', fontSize: '0.825rem', color: 'var(--text-secondary)' }}>
-              <span style={{ color: '#A5B4FC', fontWeight: 600 }}>Gemini Vision Audit:</span> Click "Re-Enhance with Gemini" or upload a product photo to generate AI analysis with Amazon SEO optimization, compliance scoring, and marketplace-ready bullet points.
-            </div>
+            <p className="meta" style={{ lineHeight: 1.6 }}>
+              Upload a photo or press re-enhance and Gemini will read the fabric, write the listing title,
+              and score it against marketplace requirements.
+            </p>
           )}
 
-          {/* Golden Flow Next Step Button */}
-          {onNavigateToCatalog && (
-            <div style={{ display: 'flex', justifyContent: 'flex-end', paddingTop: '8px' }}>
-              <button
-                onClick={() => onNavigateToCatalog(selectedProduct)}
-                className="btn btn-primary"
-                style={{ display: 'flex', alignItems: 'center', gap: '8px', fontSize: '0.85rem' }}
-              >
-                <span>Golden Flow Step 2: Open Master Product in Amazon Sandbox Catalog</span>
-                <ArrowRight size={16} />
-              </button>
+          {/* Model detail, folded away: honest but not dominant */}
+          <details className="model-notes">
+            <summary>
+              <span>Which models are running</span>
+              <ChevronDown size={14} />
+            </summary>
+            <div style={{ paddingTop: 10, display: 'flex', flexDirection: 'column', gap: 6 }}>
+              <p className="meta">
+                <span className="pill pill-ok" style={{ marginRight: 8 }}>Live</span>
+                gemini-3.1-flash-lite reads fabric and writes attributes.
+              </p>
+              <p className="meta">
+                <span className="pill pill-warn" style={{ marginRight: 8 }}>Staged</span>
+                gemini-3.1-flash-image renders the alternate views once the Google Cloud project has billing enabled.
+              </p>
+              <p className="meta">Until then the alternate views use prepared catalog assets. No generated images are presented as real.</p>
             </div>
+          </details>
+
+          {onNavigateToCatalog && (
+            <button onClick={() => onNavigateToCatalog(selectedProduct)} className="btn btn-primary" style={{ alignSelf: 'flex-start' }}>
+              List this on marketplaces
+              <ArrowRight size={15} />
+            </button>
           )}
         </div>
-
       </div>
     </div>
   );
 }
-

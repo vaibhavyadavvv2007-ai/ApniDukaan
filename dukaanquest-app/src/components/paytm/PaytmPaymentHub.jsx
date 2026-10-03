@@ -1,21 +1,9 @@
 import React, { useState } from 'react';
-import { 
-  QrCode, 
-  CreditCard, 
-  CheckCircle2, 
-  Volume2, 
-  Copy, 
-  Check, 
-  ExternalLink,
-  ShieldCheck,
-  ShieldAlert,
-  Smartphone,
-  ArrowUpRight,
-  Zap,
-  Info
-} from 'lucide-react';
+import { QrCode, Copy, Check, Volume2, Info } from 'lucide-react';
 import confetti from 'canvas-confetti';
 import * as api from '../../services/api';
+
+const CONFETTI_COLORS = ['#E8A33D', '#7BB88F'];
 
 export default function PaytmPaymentHub({ shopProfile, t }) {
   const [amount, setAmount] = useState('4850');
@@ -45,16 +33,9 @@ export default function PaytmPaymentHub({ shopProfile, t }) {
         orderId: `ORD_DEMO_${Date.now()}`,
         notes: `Demo Payment for ${shopProfile.shopName}`
       });
-
       setPaymentLink(result);
       setLinkGenerated(true);
-      
-      confetti({
-        particleCount: 30,
-        spread: 50,
-        origin: { y: 0.8 },
-        colors: ['#00BAF2', '#10B981']
-      });
+      confetti({ particleCount: 30, spread: 50, origin: { y: 0.8 }, colors: CONFETTI_COLORS });
     } catch (err) {
       console.warn('Paytm API fallback error:', err);
       setPaymentLink({
@@ -71,226 +52,132 @@ export default function PaytmPaymentHub({ shopProfile, t }) {
   const handleTriggerSoundbox = () => {
     setIsPlayingAudio(true);
     setSoundboxText(`"पेटीएम पर ₹${Number(amount).toLocaleString()} रुपये प्राप्त हुए! (Demo Soundbox Alert)"`);
-    
-    confetti({
-      particleCount: 40,
-      spread: 60,
-      origin: { y: 0.8 },
-      colors: ['#00BAF2', '#10B981', '#FFFFFF']
-    });
-
-    setTimeout(() => {
-      setIsPlayingAudio(false);
-    }, 3000);
+    confetti({ particleCount: 40, spread: 60, origin: { y: 0.8 }, colors: [...CONFETTI_COLORS, '#F7F2EA'] });
+    setTimeout(() => setIsPlayingAudio(false), 3000);
   };
 
   return (
-    <div className="glass-card" style={{ padding: '28px', display: 'flex', flexDirection: 'column', gap: '24px' }}>
-      {/* Header */}
-      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', flexWrap: 'wrap', gap: '16px' }}>
-        <div>
-          <div style={{ display: 'flex', alignItems: 'center', gap: '10px', marginBottom: '6px' }}>
-            <div style={{ width: '36px', height: '36px', borderRadius: '10px', background: 'rgba(0, 186, 242, 0.15)', border: '1px solid rgba(0, 186, 242, 0.3)', display: 'flex', alignItems: 'center', justifyContent: 'center', color: '#00BAF2' }}>
-              <CreditCard size={20} />
-            </div>
-            <h2 style={{ fontSize: '1.4rem' }}>Paytm FinTech & Soundbox Gateway</h2>
-            <span className="badge badge-amber" style={{ display: 'flex', alignItems: 'center', gap: '5px' }}>
-              <ShieldAlert size={12} /> STAGED / FALLBACK (Demo Data)
-            </span>
-          </div>
-          <p style={{ color: 'var(--text-secondary)', fontSize: '0.9rem', maxWidth: '680px' }}>
-            Seamless UPI QR payments, instant payment links for remote WhatsApp orders, and simulated real-time Paytm Soundbox voice alerts.
-          </p>
-        </div>
-
-        <button 
-          onClick={handleTriggerSoundbox} 
-          disabled={isPlayingAudio}
-          className="btn btn-paytm"
-          style={{ fontSize: '0.85rem' }}
-        >
-          <Volume2 size={16} /> {isPlayingAudio ? 'Soundbox Playing...' : 'Test Soundbox Voice Alert (Demo)'}
-        </button>
-      </div>
-
-      {/* Paytm Gateway Dashboard Status Banner */}
-      <div style={{
-        background: 'rgba(245, 158, 11, 0.08)',
-        border: '1px solid rgba(245, 158, 11, 0.3)',
-        borderRadius: 'var(--radius-md)',
-        padding: '14px 18px',
-        display: 'flex',
-        alignItems: 'flex-start',
-        gap: '12px'
-      }}>
-        <div style={{
-          width: '28px',
-          height: '28px',
-          borderRadius: '8px',
-          background: 'rgba(245, 158, 11, 0.2)',
-          display: 'flex',
-          alignItems: 'center',
-          justifyContent: 'center',
-          color: '#F59E0B',
-          flexShrink: 0,
-          marginTop: '2px'
-        }}>
-          <Info size={16} />
-        </div>
-        <div style={{ flex: 1 }}>
-          <div style={{ display: 'flex', alignItems: 'center', gap: '8px', flexWrap: 'wrap' }}>
-            <span style={{ fontSize: '0.85rem', fontWeight: 700, color: '#FCD34D' }}>
-              Paytm Integration Status: STAGED / FALLBACK (Never Live)
-            </span>
-            <span className="badge badge-amber" style={{ fontSize: '0.65rem' }}>Non-Blocking Resilient Mode</span>
-          </div>
-          <p style={{ fontSize: '0.8rem', color: '#CBD5E1', marginTop: '4px', lineHeight: 1.5, margin: '4px 0 0 0' }}>
-            Paytm test-key generation is currently unavailable on the Paytm Developer Dashboard. DukaanQuest operates in <strong>STAGED/FALLBACK</strong> mode, demonstrating the intended payment link creation, dynamic QR rendering, and vernacular Soundbox voice announcements using <strong>clearly labeled demo data</strong>.
-          </p>
-          <div style={{ fontSize: '0.75rem', color: '#94A3B8', marginTop: '6px' }}>
-            🔌 <strong>Zero-Code Staging Hook:</strong> If real staging credentials become available later, adding <code>PAYTM_MERCHANT_KEY</code> to <code>server/.env</code> instantly activates live staging calls without modifying application architecture.
-          </div>
-        </div>
-      </div>
-
-      {/* Voice Alert Announcement Banner */}
+    <div className="stack">
       {soundboxText && (
-        <div style={{ background: 'rgba(0, 186, 242, 0.12)', border: '1px solid #00BAF2', borderRadius: 'var(--radius-md)', padding: '14px 20px', display: 'flex', alignItems: 'center', gap: '14px', animation: 'pulseGlow 2s infinite' }}>
-          <Volume2 size={24} color="#00BAF2" />
+        <div className="surface" style={{ padding: 'var(--s4) var(--s5)', display: 'flex', alignItems: 'center', gap: 'var(--s3)' }}>
+          <Volume2 size={18} color="var(--accent)" />
           <div>
-            <span style={{ fontSize: '0.75rem', color: '#38BDF8', fontWeight: 700, textTransform: 'uppercase' }}>Paytm Soundbox 4.0 Audio Broadcast (Demo)</span>
-            <div style={{ fontSize: '1.1rem', fontWeight: 800, color: '#FFFFFF', marginTop: '2px' }}>
-              {soundboxText}
-            </div>
+            <p className="eyebrow">Soundbox announcement (demo)</p>
+            <p style={{ fontSize: '0.9375rem', marginTop: 2 }}>{soundboxText}</p>
           </div>
         </div>
       )}
 
-      {/* Payment Link & Dynamic QR Grid */}
-      <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(320px, 1fr))', gap: '24px' }}>
-        
-        {/* Left: Dynamic Link Builder */}
-        <div style={{ background: 'rgba(3, 7, 18, 0.6)', border: '1px solid var(--border-subtle)', borderRadius: 'var(--radius-lg)', padding: '24px', display: 'flex', flexDirection: 'column', gap: '16px' }}>
-          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-            <h3 style={{ fontSize: '1.1rem', display: 'flex', alignItems: 'center', gap: '8px', margin: 0 }}>
-              <Smartphone size={18} color="#00BAF2" /> Remote UPI Link Generator
-            </h3>
-            <span className="badge badge-amber" style={{ fontSize: '0.65rem' }}>Demo Staged</span>
+      <div className="paytm-grid">
+        {/* ---------- The counter QR: what a customer actually sees ---------- */}
+        <section>
+          <div className="section-head">
+            <div>
+              <h2>Counter QR standee</h2>
+              <p className="meta" style={{ marginTop: 2 }}>Print this for the shop counter</p>
+            </div>
+            <button onClick={() => alert("Printing Demo Counter QR Standee (STAGED/FALLBACK Mode)...")} className="btn btn-secondary btn-sm">
+              Print standee
+            </button>
           </div>
 
+          <div className="qr-panel">
+            <div className="qr-frame">
+              <div className="qr-mark">
+                <QrCode size={112} />
+                <span>Paytm UPI QR</span>
+              </div>
+              <span className="qr-demo">Demo</span>
+            </div>
+            <div style={{ textAlign: 'center' }}>
+              <p style={{ fontSize: '0.9375rem', fontWeight: 500 }}>{shopProfile.shopName}</p>
+              <p className="mono meta" style={{ marginTop: 3 }}>PAYTM_MID_984521</p>
+            </div>
+          </div>
+
+          <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 'var(--s3)', marginTop: 'var(--s4)' }}>
+            <div className="surface" style={{ padding: 'var(--s4)' }}>
+              <p className="eyebrow">Collected this month</p>
+              <p className="metric-sm" style={{ marginTop: 4 }}>₹12,450</p>
+            </div>
+            <div className="surface" style={{ padding: 'var(--s4)' }}>
+              <p className="eyebrow">Payments</p>
+              <p className="metric-sm" style={{ marginTop: 4 }}>8</p>
+            </div>
+          </div>
+        </section>
+
+        {/* ---------- Link builder ---------- */}
+        <section style={{ display: 'flex', flexDirection: 'column', gap: 'var(--s4)' }}>
           <div>
-            <label style={{ fontSize: '0.85rem', color: 'var(--text-secondary)', display: 'block', marginBottom: '6px' }}>
-              Customer Name / Reference (Demo)
-            </label>
-            <input 
-              type="text" 
-              value={customerName} 
-              onChange={(e) => setCustomerName(e.target.value)}
-              style={{ width: '100%', background: 'rgba(15, 23, 42, 0.8)', border: '1px solid var(--border-medium)', borderRadius: 'var(--radius-sm)', padding: '10px 14px', color: '#FFFFFF' }}
-            />
+            <h2>Payment link for a customer far away</h2>
+            <p className="meta" style={{ marginTop: 2, lineHeight: 1.5 }}>
+              Send a link they can pay from any UPI app. Useful when someone orders over WhatsApp.
+            </p>
           </div>
 
-          <div>
-            <label style={{ fontSize: '0.85rem', color: 'var(--text-secondary)', display: 'block', marginBottom: '6px' }}>
-              Payment Amount (₹)
-            </label>
-            <input 
-              type="number" 
-              value={amount} 
-              onChange={(e) => { setAmount(e.target.value); setLinkGenerated(false); }}
-              style={{ width: '100%', background: 'rgba(15, 23, 42, 0.8)', border: '1px solid var(--border-medium)', borderRadius: 'var(--radius-sm)', padding: '10px 14px', color: '#FFFFFF', fontSize: '1.1rem', fontWeight: 700, fontFamily: 'var(--font-mono)' }}
-            />
+          <div style={{ display: 'grid', gridTemplateColumns: '1fr 140px', gap: 'var(--s3)' }}>
+            <div>
+              <label className="eyebrow" htmlFor="cust" style={{ display: 'block', marginBottom: 6 }}>Customer</label>
+              <input
+                id="cust"
+                type="text"
+                value={customerName}
+                onChange={(e) => setCustomerName(e.target.value)}
+                className="field"
+              />
+            </div>
+            <div>
+              <label className="eyebrow" htmlFor="amt" style={{ display: 'block', marginBottom: 6 }}>Amount</label>
+              <input
+                id="amt"
+                type="number"
+                value={amount}
+                onChange={(e) => { setAmount(e.target.value); setLinkGenerated(false); }}
+                className="field mono"
+              />
+            </div>
           </div>
 
-          {/* Generate Link Button */}
-          <button
-            onClick={handleGeneratePaymentLink}
-            disabled={isGenerating || !amount}
-            className="btn btn-primary"
-            style={{ width: '100%' }}
-          >
-            {isGenerating ? (
-              <><Zap size={16} className="animate-spin" /> Generating Staged Link...</>
-            ) : (
-              <><CreditCard size={16} /> Generate Demo Payment Link</>
-            )}
+          <button onClick={handleGeneratePaymentLink} disabled={isGenerating || !amount} className="btn btn-primary">
+            {isGenerating ? 'Building link' : 'Create payment link'}
           </button>
 
           <div>
-            <label style={{ fontSize: '0.85rem', color: 'var(--text-secondary)', display: 'flex', justifyContent: 'space-between', marginBottom: '6px' }}>
-              <span>Generated Paytm Link</span>
-              <span style={{ color: '#F59E0B', fontSize: '0.75rem', fontWeight: 600 }}>Demo Data Only</span>
-            </label>
-            <div style={{ display: 'flex', gap: '8px' }}>
-              <input 
-                type="text" 
-                readOnly 
-                value={displayLink} 
-                style={{ flex: 1, background: 'rgba(0, 186, 242, 0.05)', border: '1px solid rgba(0, 186, 242, 0.3)', borderRadius: 'var(--radius-sm)', padding: '10px 14px', color: '#38BDF8', fontFamily: 'var(--font-mono)', fontSize: '0.82rem' }}
-              />
-              <button onClick={handleCopyLink} className="btn btn-secondary">
-                {copied ? <Check size={16} color="#10B981" /> : <Copy size={16} />}
+            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'baseline', marginBottom: 6 }}>
+              <span className="eyebrow">Link</span>
+              <span className="meta">Demo data only</span>
+            </div>
+            <div style={{ display: 'flex', gap: 8 }}>
+              <input type="text" readOnly value={displayLink} className="field mono" style={{ fontSize: '0.75rem' }} aria-label="Generated payment link" />
+              <button onClick={handleCopyLink} className="btn btn-secondary" aria-label="Copy payment link">
+                {copied ? <Check size={15} color="var(--ok)" /> : <Copy size={15} />}
               </button>
             </div>
           </div>
 
           {linkGenerated && (
-            <div style={{ display: 'flex', alignItems: 'center', gap: '8px', fontSize: '0.8rem', color: '#6EE7B7', background: 'rgba(16, 185, 129, 0.08)', padding: '8px 12px', borderRadius: 'var(--radius-sm)' }}>
-              <CheckCircle2 size={16} />
-              <span>
-                Demo link staged for <strong>{customerName}</strong> • ₹{Number(amount).toLocaleString()}
-                <span className="badge badge-amber" style={{ marginLeft: '6px', fontSize: '0.65rem' }}>STAGED/FALLBACK</span>
-              </span>
-            </div>
+            <p className="meta" style={{ color: 'var(--ok)', display: 'flex', alignItems: 'center', gap: 7 }}>
+              <Check size={14} /> Link ready for {customerName}
+            </p>
           )}
 
-          <div style={{ display: 'flex', alignItems: 'center', gap: '8px', fontSize: '0.8rem', color: '#6EE7B7' }}>
-            <ShieldCheck size={16} /> 0% Transaction MDR on UPI via Paytm All-in-One QR
-          </div>
-        </div>
-
-        {/* Right: Counter UPI QR Card */}
-        <div style={{ background: 'rgba(3, 7, 18, 0.6)', border: '1px solid var(--border-subtle)', borderRadius: 'var(--radius-lg)', padding: '24px', display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', textAlign: 'center', gap: '16px' }}>
-          <div style={{ background: '#FFFFFF', padding: '16px', borderRadius: '16px', boxShadow: '0 8px 24px rgba(0,0,0,0.4)', maxWidth: '200px', position: 'relative' }}>
-            {/* Stylized QR Code Visual */}
-            <div style={{ width: '168px', height: '168px', background: '#00BAF2', borderRadius: '8px', display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', color: '#FFFFFF', padding: '12px' }}>
-              <QrCode size={110} color="#FFFFFF" />
-              <span style={{ fontSize: '0.75rem', fontWeight: 900, marginTop: '4px', letterSpacing: '0.05em' }}>PAYTM UPI QR</span>
-            </div>
-            <div style={{ position: 'absolute', top: '6px', right: '6px', background: '#F59E0B', color: '#000000', fontSize: '0.6rem', fontWeight: 800, padding: '2px 6px', borderRadius: '4px' }}>
-              DEMO QR
-            </div>
-          </div>
-
-          <div>
-            <div style={{ fontWeight: 800, fontSize: '1.05rem', color: '#F8FAFC' }}>
-              Shree Ganesh Matching Centre <span style={{ fontSize: '0.75rem', color: '#F59E0B' }}>(Demo)</span>
-            </div>
-            <div style={{ color: 'var(--text-muted)', fontSize: '0.85rem', marginTop: '2px' }}>
-              Paytm Merchant ID: <code style={{ color: '#38BDF8', fontFamily: 'var(--font-mono)' }}>PAYTM_MID_984521</code>
-            </div>
-            <div style={{ fontSize: '0.75rem', color: '#94A3B8', marginTop: '4px' }}>
-              Status: <span style={{ color: '#F59E0B', fontWeight: 600 }}>STAGED / FALLBACK</span> (Demo Counter Standee)
-            </div>
-          </div>
-
-          {/* Transaction Stats */}
-          <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '12px', width: '100%' }}>
-            <div style={{ background: 'rgba(255,255,255,0.03)', border: '1px solid var(--border-subtle)', borderRadius: 'var(--radius-sm)', padding: '12px', textAlign: 'center' }}>
-              <div style={{ fontSize: '0.7rem', color: 'var(--text-muted)', textTransform: 'uppercase', fontWeight: 600 }}>Simulated UPI</div>
-              <div style={{ fontSize: '1.2rem', fontWeight: 800, color: '#10B981', fontFamily: 'var(--font-mono)' }}>₹12,450</div>
-            </div>
-            <div style={{ background: 'rgba(255,255,255,0.03)', border: '1px solid var(--border-subtle)', borderRadius: 'var(--radius-sm)', padding: '12px', textAlign: 'center' }}>
-              <div style={{ fontSize: '0.7rem', color: 'var(--text-muted)', textTransform: 'uppercase', fontWeight: 600 }}>Transactions</div>
-              <div style={{ fontSize: '1.2rem', fontWeight: 800, color: '#00BAF2', fontFamily: 'var(--font-mono)' }}>8</div>
-            </div>
-          </div>
-
-          <button onClick={() => alert("Printing Demo Counter QR Standee (STAGED/FALLBACK Mode)...")} className="btn btn-secondary" style={{ fontSize: '0.85rem' }}>
-            Print Demo Counter QR Standee
+          <button onClick={handleTriggerSoundbox} disabled={isPlayingAudio} className="btn btn-secondary btn-sm" style={{ alignSelf: 'flex-start' }}>
+            <Volume2 size={14} /> {isPlayingAudio ? 'Playing' : 'Play a soundbox alert'}
           </button>
-        </div>
 
+          {/* Honest status: one calm paragraph, not a banner of warning badges */}
+          <div className="surface-sunken" style={{ padding: 'var(--s4)' }}>
+            <p className="meta" style={{ display: 'flex', gap: 8, alignItems: 'flex-start', lineHeight: 1.55 }}>
+              <Info size={14} style={{ flexShrink: 0, marginTop: 2 }} />
+              <span>
+                Paytm has not issued test keys to this project, so payments here run in
+                demo mode and no money moves. When keys become available, adding one
+                environment variable switches real staging calls on without code changes.
+              </span>
+            </p>
+          </div>
+        </section>
       </div>
     </div>
   );

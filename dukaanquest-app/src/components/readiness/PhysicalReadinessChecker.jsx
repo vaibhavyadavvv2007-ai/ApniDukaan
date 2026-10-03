@@ -2,16 +2,15 @@ import React, { useState } from 'react';
 import { 
   CheckCircle2, 
   Circle, 
-  AlertTriangle, 
   ShieldCheck, 
   Printer, 
   Sparkles, 
   ExternalLink,
-  Info,
-  Package,
-  Layers
+  X
 } from 'lucide-react';
 import confetti from 'canvas-confetti';
+
+const CONFETTI_COLORS = ['#E8A33D', '#F2C179', '#7BB88F'];
 
 export default function PhysicalReadinessChecker({ 
   readinessRules, 
@@ -52,49 +51,15 @@ export default function PhysicalReadinessChecker({
         particleCount: 40,
         spread: 60,
         origin: { y: 0.8 },
-        colors: ['#10B981', '#6366F1', '#F59E0B']
+        colors: CONFETTI_COLORS
       });
     }
   };
 
   return (
-    <div className="glass-card" style={{ padding: '28px', display: 'flex', flexDirection: 'column', gap: '24px' }}>
-      {/* Header */}
-      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', flexWrap: 'wrap', gap: '16px' }}>
-        <div>
-          <div style={{ display: 'flex', alignItems: 'center', gap: '10px', marginBottom: '6px' }}>
-            <div style={{ width: '36px', height: '36px', borderRadius: '10px', background: 'rgba(16, 185, 129, 0.15)', border: '1px solid rgba(16, 185, 129, 0.3)', display: 'flex', alignItems: 'center', justifyContent: 'center', color: '#10B981' }}>
-              <Package size={20} />
-            </div>
-            <h2 style={{ fontSize: '1.4rem' }}>{t.physicalTitle}</h2>
-            <span className="badge badge-amber">Exclusive Feature</span>
-          </div>
-          <p style={{ color: 'var(--text-secondary)', fontSize: '0.9rem', maxWidth: '680px' }}>
-            {t.physicalSubtitle}
-          </p>
-        </div>
-
-        <div style={{ display: 'flex', gap: '10px', flexWrap: 'wrap' }}>
-          <button 
-            onClick={() => handleLiveScrape(selectedPlatform)}
-            disabled={isScraping}
-            className="btn btn-primary"
-            style={{ fontSize: '0.85rem', display: 'flex', alignItems: 'center', gap: '6px' }}
-          >
-            <Sparkles size={15} /> {isScraping ? 'Scraping Documentation...' : '⚡ Scrape Live Marketplace Specs'}
-          </button>
-          <button 
-            onClick={() => setShowPrintModal(true)}
-            className="btn btn-secondary" 
-            style={{ fontSize: '0.85rem' }}
-          >
-            <Printer size={16} /> Print Seller Checklist
-          </button>
-        </div>
-      </div>
-
-      {/* Platform Selector Tabs */}
-      <div style={{ display: 'flex', gap: '12px', borderBottom: '1px solid var(--border-subtle)', paddingBottom: '14px', flexWrap: 'wrap' }}>
+    <div className="stack">
+      {/* Platform switcher: segmented, quiet */}
+      <div className="segmented" role="tablist" aria-label="Marketplace">
         {Object.entries(readinessRules).map(([key, data]) => {
           const active = selectedPlatform === key;
           const done = data.checklist.filter(i => i.completed).length;
@@ -102,196 +67,195 @@ export default function PhysicalReadinessChecker({
           return (
             <button
               key={key}
+              role="tab"
+              aria-selected={active}
               onClick={() => setSelectedPlatform(key)}
-              style={{
-                background: active ? 'rgba(99, 102, 241, 0.15)' : 'rgba(255, 255, 255, 0.03)',
-                border: active ? '1px solid var(--brand-primary)' : '1px solid var(--border-subtle)',
-                color: active ? '#FFFFFF' : 'var(--text-secondary)',
-                padding: '10px 20px',
-                borderRadius: 'var(--radius-md)',
-                display: 'flex',
-                alignItems: 'center',
-                gap: '12px',
-                cursor: 'pointer',
-                transition: 'all var(--transition-fast)'
-              }}
+              className={`segment${active ? ' segment-active' : ''}`}
             >
-              <span style={{ fontWeight: 700, fontSize: '0.95rem' }}>{data.name}</span>
-              <span className={`badge ${active ? 'badge-brand' : 'badge-amber'}`} style={{ fontSize: '0.7rem' }}>
-                {done}/{total} Ready
-              </span>
+              {data.name}
+              <span className="mono segment-count">{done}/{total}</span>
             </button>
           );
         })}
       </div>
 
-      {/* Platform Status Banner */}
-      <div style={{ background: 'rgba(3, 7, 18, 0.6)', border: '1px solid var(--border-subtle)', borderRadius: 'var(--radius-md)', padding: '16px 20px', display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: '16px' }}>
-        <div style={{ display: 'flex', alignItems: 'center', gap: '14px' }}>
-          <div style={{ width: '44px', height: '44px', borderRadius: '12px', background: currentRules.logoColor, display: 'flex', alignItems: 'center', justifyContent: 'center', color: '#FFFFFF', fontWeight: 900, fontSize: '1.2rem', boxShadow: '0 4px 12px rgba(0,0,0,0.4)' }}>
+      {/* Progress: the leading fact for this screen */}
+      <section className="surface" style={{ padding: 'var(--s5)', display: 'flex', flexWrap: 'wrap', gap: 'var(--s5)', alignItems: 'center', justifyContent: 'space-between' }}>
+        <div style={{ display: 'flex', alignItems: 'center', gap: 'var(--s4)', minWidth: 0 }}>
+          <div
+            aria-hidden="true"
+            style={{
+              width: 42, height: 42, borderRadius: 'var(--r-sm)',
+              background: currentRules.logoColor, color: '#fff',
+              display: 'flex', alignItems: 'center', justifyContent: 'center',
+              fontWeight: 600, fontSize: '1.0625rem', flexShrink: 0
+            }}
+          >
             {currentRules.name.charAt(0)}
           </div>
+          <div style={{ minWidth: 0 }}>
+            <h2 style={{ fontSize: '1.0625rem' }}>{t.physicalTitle}</h2>
+            <p className="meta" style={{ marginTop: 3 }}>
+              {t.physicalSubtitle}
+            </p>
+          </div>
+        </div>
+
+        <div style={{ display: 'flex', alignItems: 'center', gap: 'var(--s5)', flexWrap: 'wrap' }}>
           <div>
-            <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
-              <span style={{ fontWeight: 700, fontSize: '1.1rem' }}>{currentRules.name} Onboarding Channel</span>
-              {isCertified && (
-                <span className="badge badge-emerald">
-                  <ShieldCheck size={12} /> Certified Ready
-                </span>
-              )}
-            </div>
-            <div style={{ color: 'var(--text-muted)', fontSize: '0.85rem' }}>
-              Fee Structure: <span style={{ color: '#E2E8F0', fontFamily: 'var(--font-mono)' }}>{currentRules.feeRate}</span>
-            </div>
+            <p className="eyebrow">{currentRules.name} takes</p>
+            <p className="mono" style={{ fontSize: '1rem', marginTop: 2 }}>{currentRules.feeRate}</p>
           </div>
-        </div>
-
-        {/* Progress Gauge */}
-        <div style={{ display: 'flex', alignItems: 'center', gap: '16px' }}>
-          <div style={{ textAlign: 'right' }}>
-            <div style={{ fontSize: '0.8rem', color: 'var(--text-secondary)' }}>Physical Readiness</div>
-            <div style={{ fontSize: '1.25rem', fontWeight: 800, color: progressPct >= 80 ? '#10B981' : '#F59E0B' }}>
-              {progressPct}%
+          <div style={{ minWidth: 150 }}>
+            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'baseline', marginBottom: 7 }}>
+              <span className="eyebrow">Ready</span>
+              <span className="mono" style={{ fontSize: '0.9375rem', fontWeight: 500 }}>{progressPct}%</span>
             </div>
-          </div>
-          <div style={{ width: '120px', height: '10px', background: 'rgba(255, 255, 255, 0.08)', borderRadius: 'var(--radius-full)', overflow: 'hidden' }}>
-            <div 
-              style={{ 
-                width: `${progressPct}%`, 
-                height: '100%', 
-                background: progressPct >= 80 ? 'linear-gradient(90deg, #10B981, #059669)' : 'linear-gradient(90deg, #F59E0B, #D97706)',
-                transition: 'width 400ms ease'
-              }}
-            />
-          </div>
-        </div>
-      </div>
-
-      {/* Scraped Documentation Inspector */}
-      {scrapedData && (
-        <div style={{ 
-          background: 'rgba(99, 102, 241, 0.08)', 
-          border: '1px solid rgba(99, 102, 241, 0.3)', 
-          borderRadius: 'var(--radius-md)', 
-          padding: '16px 20px',
-          display: 'flex',
-          flexDirection: 'column',
-          gap: '12px'
-        }}>
-          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: '8px' }}>
-            <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
-              <Sparkles size={16} color="#A5B4FC" />
-              <span style={{ fontWeight: 700, color: '#FFFFFF', fontSize: '0.95rem' }}>
-                Live Scraped Seller Specs: {scrapedData.platform}
-              </span>
-              <span className="badge badge-brand" style={{ fontSize: '0.65rem' }}>
-                Category: {scrapedData.category}
-              </span>
+            <div className="track" style={{ height: 5 }}>
+              <div className="track-fill" style={{ transform: `scaleX(${progressPct / 100})` }} />
             </div>
-            <a 
-              href={scrapedData.sourceUrl} 
-              target="_blank" 
-              rel="noreferrer"
-              style={{ fontSize: '0.75rem', color: '#818CF8', display: 'flex', alignItems: 'center', gap: '4px', textDecoration: 'none' }}
+            {isCertified && (
+              <p className="meta" style={{ marginTop: 7, color: 'var(--ok)', display: 'flex', alignItems: 'center', gap: 5 }}>
+                <ShieldCheck size={13} /> All mandatory steps done
+              </p>
+            )}
+          </div>
+          <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap' }}>
+            <button
+              onClick={() => handleLiveScrape(selectedPlatform)}
+              disabled={isScraping}
+              className="btn btn-secondary btn-sm"
             >
-              Verify Original Source Docs <ExternalLink size={12} />
-            </a>
+              <Sparkles size={14} /> {isScraping ? 'Reading specs...' : 'Check live marketplace specs'}
+            </button>
+            <button onClick={() => setShowPrintModal(true)} className="btn btn-quiet btn-sm">
+              <Printer size={14} /> Print checklist
+            </button>
           </div>
-          <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(280px, 1fr))', gap: '10px' }}>
-            {scrapedData.specs?.map((spec, i) => (
-              <div key={i} style={{ background: 'rgba(0, 0, 0, 0.3)', padding: '10px 14px', borderRadius: 'var(--radius-sm)', border: '1px solid rgba(255,255,255,0.05)', fontSize: '0.825rem', color: 'var(--text-secondary)' }}>
-                <span style={{ color: '#FCD34D', fontWeight: 600 }}>•</span> {spec}
-              </div>
-            ))}
-          </div>
-          {scrapedData.returnsProtocol && (
-            <div style={{ fontSize: '0.8rem', color: '#94A3B8', borderTop: '1px solid rgba(255,255,255,0.05)', paddingTop: '8px' }}>
-              <strong style={{ color: '#E2E8F0' }}>Reverse Logistics & Returns:</strong> {scrapedData.returnsProtocol}
+        </div>
+      </section>
+
+      {/* Scraped specs, folded away until asked for */}
+      {scrapedData && (
+        <div className="surface-sunken" style={{ padding: 'var(--s4) var(--s5)' }}>
+          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'baseline', gap: 12, flexWrap: 'wrap', marginBottom: 12 }}>
+            <div>
+              <h3 style={{ fontSize: '0.9375rem' }}>
+                {scrapedData.platform} requirements for {scrapedData.category}
+              </h3>
+              <a
+                href={scrapedData.sourceUrl}
+                target="_blank"
+                rel="noreferrer"
+                className="meta"
+                style={{ color: 'var(--accent-soft)', display: 'inline-flex', alignItems: 'center', gap: 4, marginTop: 3 }}
+              >
+                View source <ExternalLink size={11} />
+              </a>
             </div>
+            <button onClick={() => setScrapedData(null)} className="btn btn-quiet btn-sm" aria-label="Dismiss">
+              <X size={14} />
+            </button>
+          </div>
+          <ul style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(260px, 1fr))', gap: '8px 20px', listStyle: 'none', padding: 0 }}>
+            {scrapedData.specs?.map((spec, i) => (
+              <li key={i} className="meta" style={{ display: 'flex', gap: 8 }}>
+                <span style={{ color: 'var(--accent)' }}>·</span>{spec}
+              </li>
+            ))}
+          </ul>
+          {scrapedData.returnsProtocol && (
+            <p className="meta" style={{ marginTop: 14, paddingTop: 12, borderTop: '1px solid var(--line-faint)' }}>
+              <strong style={{ color: 'var(--text-2)', fontWeight: 500 }}>Returns</strong> {scrapedData.returnsProtocol}
+            </p>
           )}
         </div>
       )}
 
-      {/* Checklist Items */}
-      <div style={{ display: 'flex', flexDirection: 'column', gap: '12px' }}>
-        {items.map((item) => {
-          return (
-            <div
+      {/* The checklist is the work. Give it room. */}
+      <section>
+        <div className="section-head">
+          <h2>{currentRules.name} requirements</h2>
+          <span className="meta mono">{completedCount} of {totalCount} done</span>
+        </div>
+
+        <div style={{ display: 'flex', flexDirection: 'column', gap: 2 }}>
+          {items.map((item) => (
+            <button
               key={item.id}
               onClick={() => handleToggle(item)}
+              className="row row-interactive"
               style={{
-                background: item.completed ? 'rgba(16, 185, 129, 0.04)' : 'rgba(255, 255, 255, 0.02)',
-                border: item.completed ? '1px solid rgba(16, 185, 129, 0.3)' : '1px solid var(--border-subtle)',
-                borderRadius: 'var(--radius-md)',
-                padding: '16px 20px',
-                display: 'flex',
-                alignItems: 'flex-start',
-                gap: '16px',
+                textAlign: 'left',
                 cursor: 'pointer',
-                transition: 'all var(--transition-fast)'
+                borderRadius: 'var(--r-md)',
+                paddingTop: 14,
+                paddingBottom: 14,
+                background: item.completed ? 'transparent' : 'var(--ink-800)',
+                opacity: item.completed ? 0.6 : 1
               }}
             >
-              <div style={{ paddingTop: '2px', color: item.completed ? '#10B981' : 'var(--text-muted)' }}>
-                {item.completed ? <CheckCircle2 size={22} /> : <Circle size={22} />}
-              </div>
+              <span style={{ color: item.completed ? 'var(--ok)' : 'var(--text-3)', flexShrink: 0 }}>
+                {item.completed ? <CheckCircle2 size={17} /> : <Circle size={17} />}
+              </span>
 
-              <div style={{ flex: 1 }}>
-                <div style={{ display: 'flex', alignItems: 'center', gap: '8px', marginBottom: '4px', flexWrap: 'wrap' }}>
-                  <span style={{ fontWeight: 700, fontSize: '0.975rem', textDecoration: item.completed ? 'line-through' : 'none', color: item.completed ? 'var(--text-secondary)' : 'var(--text-primary)' }}>
+              <span style={{ flex: 1, minWidth: 0 }}>
+                <span style={{ display: 'flex', alignItems: 'center', gap: 8, flexWrap: 'wrap' }}>
+                  <span style={{
+                    fontSize: '0.9375rem', fontWeight: 500,
+                    color: item.completed ? 'var(--text-3)' : 'var(--text)',
+                    textDecoration: item.completed ? 'line-through' : 'none'
+                  }}>
                     {item.title}
                   </span>
-                  <span className="badge badge-brand" style={{ fontSize: '0.65rem' }}>
-                    {item.category}
-                  </span>
-                  {item.mandatory ? (
-                    <span className="badge badge-amber" style={{ fontSize: '0.65rem' }}>
-                      Mandatory
-                    </span>
-                  ) : (
-                    <span className="badge badge-emerald" style={{ fontSize: '0.65rem' }}>
-                      Recommended
-                    </span>
-                  )}
-                  <span style={{ marginLeft: 'auto', fontSize: '0.75rem', color: '#FCD34D', fontWeight: 600, display: 'flex', alignItems: 'center', gap: '3px' }}>
-                    <Sparkles size={12} /> +{item.xpReward} XP
-                  </span>
-                </div>
-                <p style={{ color: 'var(--text-muted)', fontSize: '0.85rem', lineHeight: 1.4 }}>
+                  {item.mandatory && <span className="pill pill-warn">Required</span>}
+                </span>
+                <span className="meta" style={{ display: 'block', marginTop: 3, lineHeight: 1.45 }}>
                   {item.spec}
-                </p>
-              </div>
-            </div>
-          );
-        })}
-      </div>
+                </span>
+              </span>
 
-      {/* Printable Specs Modal */}
+              <span className="mono meta" style={{ flexShrink: 0 }}>+{item.xpReward} XP</span>
+            </button>
+          ))}
+        </div>
+      </section>
+
+      {/* Print guide */}
       {showPrintModal && (
-        <div style={{ position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.85)', backdropFilter: 'blur(8px)', display: 'flex', alignItems: 'center', justifyContent: 'center', zIndex: 100, padding: '20px' }}>
-          <div className="glass-card" style={{ maxWidth: '600px', width: '100%', padding: '32px', background: '#0B0F19', border: '1px solid var(--border-medium)', maxHeight: '90vh', overflowY: 'auto' }}>
-            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '20px' }}>
-              <h3 style={{ fontSize: '1.25rem' }}>🖨️ Physical Packaging & Labeling Standards</h3>
-              <button onClick={() => setShowPrintModal(false)} className="btn btn-ghost" style={{ padding: '6px 12px' }}>✕ Close</button>
+        <div className="modal-scrim" onClick={() => setShowPrintModal(false)}>
+          <div
+            className="surface"
+            role="dialog"
+            aria-modal="true"
+            aria-label="Packaging and labeling standards"
+            onClick={(e) => e.stopPropagation()}
+            style={{ maxWidth: 560, width: '100%', padding: 'var(--s5)', maxHeight: '85vh', overflowY: 'auto' }}
+          >
+            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 'var(--s4)' }}>
+              <h2 style={{ fontSize: '1.0625rem' }}>Packaging and labeling standards</h2>
+              <button onClick={() => setShowPrintModal(false)} className="btn btn-quiet btn-sm" aria-label="Close">
+                <X size={15} />
+              </button>
             </div>
-            <div style={{ display: 'flex', flexDirection: 'column', gap: '16px', color: 'var(--text-secondary)', fontSize: '0.875rem' }}>
-              <div style={{ background: 'rgba(255,255,255,0.03)', padding: '16px', borderRadius: 'var(--radius-sm)', border: '1px solid var(--border-subtle)' }}>
-                <strong style={{ color: '#F8FAFC', display: 'block', marginBottom: '6px' }}>1. Polybag Warning Sticker Spec:</strong>
-                Text required: "WARNING: To avoid danger of suffocation, keep this plastic bag away from babies and children." Minimum font size 10pt.
+            <div style={{ display: 'flex', flexDirection: 'column', gap: 'var(--s4)' }}>
+              <div>
+                <p style={{ fontWeight: 500, marginBottom: 3 }}>Polybag warning sticker</p>
+                <p className="meta">"WARNING: To avoid danger of suffocation, keep this plastic bag away from babies and children." Minimum 10pt.</p>
               </div>
-              <div style={{ background: 'rgba(255,255,255,0.03)', padding: '16px', borderRadius: 'var(--radius-sm)', border: '1px solid var(--border-subtle)' }}>
-                <strong style={{ color: '#F8FAFC', display: 'block', marginBottom: '6px' }}>2. Barcode Label (FNSKU):</strong>
-                Dimensions: 2" x 1" thermal transfer sticker. Must include Product Title, SKU (e.g. SG-KANJ-MRN-01), Condition (New), and EAN/FNSKU barcode.
+              <div>
+                <p style={{ fontWeight: 500, marginBottom: 3 }}>Barcode label (FNSKU)</p>
+                <p className="meta">2 × 1 inch thermal sticker carrying product title, SKU, condition, and barcode.</p>
               </div>
-              <div style={{ background: 'rgba(255,255,255,0.03)', padding: '16px', borderRadius: 'var(--radius-sm)', border: '1px solid var(--border-subtle)' }}>
-                <strong style={{ color: '#F8FAFC', display: 'block', marginBottom: '6px' }}>3. Outer Carton Sealing:</strong>
-                Use 2-inch wide pressure-sensitive plastic tape. Apply along all center seams and edge seams in an "H" shape.
+              <div>
+                <p style={{ fontWeight: 500, marginBottom: 3 }}>Outer carton sealing</p>
+                <p className="meta">2 inch pressure-sensitive tape along all centre and edge seams in an H pattern.</p>
               </div>
-              <button 
+              <button
                 onClick={() => { alert("Packaging Spec Sheet sent to printer / PDF download started!"); setShowPrintModal(false); }}
-                className="btn btn-primary" 
-                style={{ width: '100%', marginTop: '10px' }}
+                className="btn btn-primary"
               >
-                Print / Save PDF Guide
+                Print or save as PDF
               </button>
             </div>
           </div>

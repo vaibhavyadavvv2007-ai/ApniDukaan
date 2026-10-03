@@ -187,34 +187,37 @@ The app bakes this journey into a banner at the top: **"3-Min Golden Journey:"**
 
 ## 4. EXACT CLICK-BY-CLICK DEMO INSTRUCTIONS
 
-Do exactly this, in order. (Assumes a fresh page at `http://127.0.0.1:5173` — the app always starts at Level 2, 420/600 XP, "Completed 2/4".)
+Do exactly this, in order. (Assumes a fresh page at `http://127.0.0.1:5173` — the app starts at Level 2, "Mohalla Merchant", 2 of 4 quests done.)
+
+> **UI note (frontend redesign).** The screens are now a left sidebar plus a content column, in warm ink with a saffron accent. Navigation is the sidebar, not a top tier bar. Integration status is a collapsed **"Systems connected"** disclosure at the bottom of the sidebar. Button labels are plain merchant language. The old "Golden Flow Step N" buttons no longer exist; move between stages with the **"From photo to profit"** stepper at the top of every screen, or the sidebar.
 
 1. Open **`http://127.0.0.1:5173`** in Chrome.
-2. Wait 2–3 seconds. You should see the dark "Town & Copilot" dashboard: a neon 2D town with 5 buildings, a top header reading **"DukaanQuest"** + `PS-21 FinTech`, a tier bar (**Gemini LIVE · Sarvam LIVE · WhatsApp/n8n LIVE · Amazon SANDBOX · Paytm FALLBACK**), and a **"3-Min Golden Journey"** chip banner.
-3. Click the **"1. Photo Studio (Gemini Vision)"** journey chip (top banner).
-4. *(Optional, 5 extra seconds, better video)*: click **"Upload Photo"**, choose any product photo from your computer, and watch the processing banner.
-5. Click **"Re-Enhance with Gemini"** (purple button, top right).
-6. Wait ~3–6 seconds until the processing banner disappears and confetti fires. Confirm the **"✨ Gemini AI Analysis Result"** card is filled.
-7. Drag the split slider left and right once (slowly — this is a hero shot).
-8. Click each asset tab once: **"1. Amazon Main" → "2. Myntra Lifestyle" → "3. Macro Weave Detail" → "4. Infographic Spec"**, ending back on **"1. Amazon Main"**.
-9. Click **"Golden Flow Step 2: Open Master Product in Amazon Sandbox Catalog"** (bottom-right of the AI result card).
-10. On the Catalog Transformer, confirm the badge **"🟢 SP-API Sandbox Verified"** is visible (it auto-checked when the tab opened). If it says "Sandbox Authenticated" (amber), see §12 Amazon backup.
-11. Click **"Inspect Compliant SP-API JSON_LISTINGS_FEED Schema"** once to flash the real JSON, then collapse it.
-12. Click **"Submit to SP-API Sandbox (PUT)"** (orange button).
-13. Wait ~1–2 seconds. Confirm the result card appears: **"SP-API Sandbox Verified • Export-Ready Payload Generated"** with the amber safeguard note.
-14. Click **"Golden Flow Step 3: Launch Regional WhatsApp Campaign for this Saree"**.
-15. In the top navbar, click the language dropdown and select **"हिंदी (Hindi)"**. Watch the WhatsApp preview bubble translate (badge "Sarvam Translating…" for under a second). *(Optional: show one more language, e.g. "ಕನ್ನಡ (Kannada)", then continue in Hindi.)*
-16. Click the **"VIP"** segment button (under "Select Customer Segment"). The recipient list should show 2 customers (Ananya Deshpande, Sunita Sharma).
-17. Click **"Broadcast to 2 Customers"** (top-right button; label shows the live count).
-18. In the **"Merchant Approval Required"** modal, pause one beat (good shot of the DPDP consent note), then click **"Yes, Authorize Broadcast"**.
-19. Wait 1–3 seconds. Confirm **"Campaign Broadcast Successfully Triggered!"** and look for the **wamid** badge. Header XP should now read 460/600.
-20. Click **"Golden Flow Step 4: Calculate Campaign Margins & ROI in What-If Simulator"**.
-21. On the simulator, drag **"Available Investment Budget"** once (anywhere 3,000–50,000) to show it's interactive, then drag it back to **₹10,000**. Leave **"Stored Offline Customers"** at **184**.
-22. Pause on the three strategy cards (say the simulator lines). Point at the **"★ Recommended"** ribbon and the **"Zero LLM Hallucinations"** shield.
-23. Click **"Golden Flow Step 5: Adopt Strategy B & Complete Quest"** (green button on Strategy B).
-24. Confetti fires; the app jumps to the Town tab. Header shows **"Level 3 • Digital Vyapari"** and **610/600 XP**. Hold on this frame for the closing narration (§17).
+2. Wait 2-3 seconds. You land on **Town & Copilot**: the **"From photo to profit"** stepper (reading "2/5 steps done" and "Next up: list once"), the revenue metric, an isometric town of five buildings with an inspector panel listing them, and **Milestones** below.
+3. *(Optional, 5 extra seconds, better video)*: hover a building in the town, or click it in the right-hand inspector, to show the buildings are live navigation.
+4. Click **"Photograph"** in the stepper (or **Gemini AI Studio** in the sidebar).
+5. *(Optional)*: click **"Upload photo"**, choose any product photo from your computer, and watch the processing banner.
+6. Click **"Re-Enhance with Gemini"** (primary button, top right).
+7. Wait ~3-6 seconds until the processing banner disappears and confetti fires. Confirm the **"What Gemini read"** card is filled.
+8. Drag the split slider left and right once (slowly, this is a hero shot).
+9. Click each asset tile once: **"Amazon main"**, **"Myntra lifestyle"**, **"Weave detail"**, **"Measurements"**, ending back on **"Amazon main"**.
+10. Click **"List this on marketplaces"**.
+11. On Catalog Transformer, confirm **"Sandbox connected"** next to "Amazon selling sandbox, not the live store".
+12. Click **"Product type and API details"** once to expand the real payload, then collapse it.
+13. Click **"Send it to Amazon's test catalogue"**.
+14. Wait ~1-2 seconds. Confirm the **Submission** and **Response** rows appear, with the **"Sandbox, production blocked"** note.
+15. Click **"Reach customers"** in the stepper (or **n8n WhatsApp CRM** in the sidebar).
+16. In the **sidebar language dropdown**, select **"हिंदी"**. Watch the WhatsApp preview bubble translate. *(Optional: show one more language, e.g. "ಕನ್ನಡ", then continue in Hindi.)*
+17. Click the **"VIP"** segment button (under "Who receives it"). The recipient list updates.
+18. Click **"Send to N customers"** (the label always shows the live count).
+19. In the **"Send this message?"** modal, pause one beat (good shot of the DPDP consent note), then confirm.
+20. Wait 1-3 seconds. Confirm the delivery state. Sidebar XP should have increased.
+21. Click **"Simulate"** in the stepper (or **What-If Simulator** in the sidebar).
+22. Drag **"You can spend"** once (anywhere 3,000-50,000) to show it is interactive, then drag it back to **₹10,000**. Leave **"Customers on your list"** at its current value.
+23. Pause on the three strategy cards (say the simulator lines). Point at the **"Best for a shop your size"** flag on Option B and open **"Where these numbers come from"**.
+24. Click **"Do this one"** on Option B.
+25. Confetti fires; the app returns to Town. The sidebar shows **Level 3 / Digital Vyapari**. Hold on this frame for the closing narration (§17).
 
-**Total: ~2:30–2:50 of screen action.** Optional bonus (only if time allows): the **Paytm FinTech** tab → **"Test Soundbox Voice Alert (Demo)"** → Hindi text banner + **"Generate Demo Payment Link"** → `[DEMO LINK]` field — always framed with its "STAGED / FALLBACK (Demo Data)" badge visible.
+**Total: ~2:30-2:50 of screen action.** Optional bonus (only if time allows): the **Paytm FinTech** tab, then **"Play a soundbox alert"** and **"Create payment link"**, ending on the `[DEMO LINK]` field. Keep the "Demo data only" note visible in frame.
 
 ---
 

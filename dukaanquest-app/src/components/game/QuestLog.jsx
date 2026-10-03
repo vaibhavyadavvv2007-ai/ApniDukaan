@@ -1,15 +1,8 @@
 import React from 'react';
-import { 
-  Trophy, 
-  Sparkles, 
-  CheckCircle2, 
-  Circle, 
-  Award, 
-  ChevronRight,
-  Flame,
-  Star
-} from 'lucide-react';
+import { CheckCircle2, Circle, Flame, Star } from 'lucide-react';
 import confetti from 'canvas-confetti';
+
+const CONFETTI_COLORS = ['#E8A33D', '#F2C179', '#7BB88F'];
 
 export default function QuestLog({ 
   quests, 
@@ -19,6 +12,7 @@ export default function QuestLog({
   onCompleteQuest 
 }) {
   const completedCount = quests.filter(q => q.completed).length;
+  const nextQuest = quests.find(q => !q.completed);
 
   const handleClaim = (quest) => {
     if (quest.completed) return;
@@ -27,88 +21,71 @@ export default function QuestLog({
       particleCount: 60,
       spread: 75,
       origin: { y: 0.7 },
-      colors: ['#F59E0B', '#6366F1', '#10B981']
+      colors: CONFETTI_COLORS
     });
   };
 
   return (
-    <div className="glass-card" style={{ padding: '24px', display: 'flex', flexDirection: 'column', gap: '20px' }}>
-      {/* Header */}
-      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: '12px' }}>
-        <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
-          <div style={{ width: '36px', height: '36px', borderRadius: '10px', background: 'rgba(245, 158, 11, 0.15)', display: 'flex', alignItems: 'center', justifyContent: 'center', color: '#F59E0B' }}>
-            <Trophy size={20} />
-          </div>
-          <div>
-            <h3 style={{ fontSize: '1.2rem' }}>Digital Vyapari Quest Engine</h3>
-            <span style={{ fontSize: '0.8rem', color: 'var(--text-muted)' }}>
-              Completed {completedCount}/{quests.length} Business Milestones
-            </span>
-          </div>
+    <section>
+      <div className="section-head">
+        <div>
+          <h2>Milestones</h2>
+          <p className="meta" style={{ marginTop: 2 }}>
+            {nextQuest
+              ? `Next: ${nextQuest.title}`
+              : 'Every milestone complete'}
+          </p>
         </div>
-
-        <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
-          <div style={{ display: 'flex', alignItems: 'center', gap: '6px', background: 'rgba(244, 63, 94, 0.15)', border: '1px solid rgba(244, 63, 94, 0.3)', padding: '4px 12px', borderRadius: 'var(--radius-full)', color: '#FDA4AF', fontSize: '0.8rem', fontWeight: 700 }}>
-            <Flame size={16} color="#F43F5E" /> {streak} Day Streak
-          </div>
-          <div style={{ display: 'flex', alignItems: 'center', gap: '6px', background: 'rgba(99, 102, 241, 0.15)', border: '1px solid rgba(99, 102, 241, 0.3)', padding: '4px 12px', borderRadius: 'var(--radius-full)', color: '#A5B4FC', fontSize: '0.8rem', fontWeight: 700 }}>
-            <Star size={16} color="#6366F1" /> Level {level} Merchant
-          </div>
+        <div style={{ display: 'flex', alignItems: 'center', gap: 14 }}>
+          <span className="meta" style={{ display: 'inline-flex', alignItems: 'center', gap: 5 }}>
+            <Flame size={13} color="var(--text-3)" /> {streak} day streak
+          </span>
+          <span className="meta mono">{completedCount}/{quests.length}</span>
         </div>
       </div>
 
-      {/* Quests List */}
-      <div style={{ display: 'flex', flexDirection: 'column', gap: '12px' }}>
+      <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
         {quests.map((quest) => (
           <div
             key={quest.id}
+            className="row"
             style={{
-              background: quest.completed ? 'rgba(16, 185, 129, 0.04)' : 'rgba(255, 255, 255, 0.02)',
-              border: quest.completed ? '1px solid rgba(16, 185, 129, 0.3)' : '1px solid var(--border-subtle)',
-              borderRadius: 'var(--radius-md)',
-              padding: '16px 20px',
-              display: 'flex',
-              alignItems: 'center',
-              justifyContent: 'space-between',
-              gap: '16px',
-              flexWrap: 'wrap'
+              opacity: quest.completed ? 0.62 : 1,
+              paddingTop: 14,
+              paddingBottom: 14
             }}
           >
-            <div style={{ display: 'flex', alignItems: 'flex-start', gap: '14px', flex: 1 }}>
-              <div style={{ paddingTop: '2px', color: quest.completed ? '#10B981' : 'var(--text-muted)' }}>
-                {quest.completed ? <CheckCircle2 size={20} /> : <Circle size={20} />}
-              </div>
-              <div>
-                <div style={{ display: 'flex', alignItems: 'center', gap: '8px', marginBottom: '2px' }}>
-                  <span style={{ fontWeight: 700, fontSize: '0.95rem', color: quest.completed ? 'var(--text-secondary)' : 'var(--text-primary)', textDecoration: quest.completed ? 'line-through' : 'none' }}>
-                    {quest.title}
-                  </span>
-                  <span className="badge badge-brand" style={{ fontSize: '0.65rem' }}>
-                    {quest.category}
-                  </span>
-                </div>
-                <p style={{ color: 'var(--text-muted)', fontSize: '0.825rem' }}>
-                  {quest.desc}
-                </p>
-              </div>
+            <span style={{ color: quest.completed ? 'var(--ok)' : 'var(--text-3)', flexShrink: 0 }}>
+              {quest.completed ? <CheckCircle2 size={17} /> : <Circle size={17} />}
+            </span>
+
+            <div style={{ flex: 1, minWidth: 0 }}>
+              <p style={{
+                fontSize: '0.9375rem',
+                fontWeight: 500,
+                color: quest.completed ? 'var(--text-3)' : 'var(--text)',
+                textDecoration: quest.completed ? 'line-through' : 'none'
+              }}>
+                {quest.title}
+              </p>
+              <p className="meta" style={{ marginTop: 2 }}>{quest.desc}</p>
             </div>
 
-            <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
-              <span style={{ color: '#FCD34D', fontSize: '0.85rem', fontWeight: 700 }}>
+            <div style={{ display: 'flex', alignItems: 'center', gap: 14, flexShrink: 0 }}>
+              <span className="mono meta" style={{ color: 'var(--text-3)' }}>
                 +{quest.xp} XP
               </span>
               <button
                 onClick={() => handleClaim(quest)}
                 disabled={quest.completed}
-                className={quest.completed ? "btn btn-ghost" : "btn btn-primary"}
-                style={{ padding: '6px 14px', fontSize: '0.8rem' }}
+                className={quest.completed ? 'btn btn-quiet btn-sm' : 'btn btn-secondary btn-sm'}
               >
-                {quest.completed ? 'Completed ✓' : 'Complete Quest'}
+                {quest.completed ? 'Done' : 'Complete'}
               </button>
             </div>
           </div>
         ))}
       </div>
-    </div>
+    </section>
   );
 }
