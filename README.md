@@ -1,5 +1,15 @@
 # DukaanQuest
 
+## Frontend redesign review (`joshua-improvements`)
+
+This branch introduces a connected, browser-saved product → listing → campaign
+workflow and a redesigned dashboard. Read the **[frontend change guide](docs/FRONTEND_CHANGES.md)**
+for before/after comparisons, setup on port **5001**, file-level changes, testing,
+and integration limitations before merging. The sections below describe the
+previous interface and are retained for reference.
+
+---
+
 A merchant-first, gamified omnichannel growth copilot for traditional Indian
 retailers. It packages three real jobs — **getting stock ready for Amazon,
 Flipkart, Myntra and Nykaa**, **reaching walk-ins back on WhatsApp**, and
