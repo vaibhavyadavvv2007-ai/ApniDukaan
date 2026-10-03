@@ -1,0 +1,866 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=1920, height=1080" />
+    <title>DukaanQuest — From photo to profit</title>
+    <script src="assets/vendor/gsap.min.js"></script>
+    <script src="assets/music/bed-audio.js"></script>
+    <style>
+      /* Palette lifted verbatim from dukaanquest-app/src/index.css.
+         --text-3 is lifted from #7d7469 to #9a9082: the original is 4.1:1 on
+         ink-900, which fails WCAG AA for small text. Same warm-grey family. */
+      :root {
+        --ink-900: #12100e;
+        --ink-850: #171412;
+        --ink-800: #1d1a17;
+        --ink-750: #242019;
+        --ink-700: #2c2822;
+        --line-faint: rgba(247, 240, 228, 0.06);
+        --line: rgba(247, 240, 228, 0.09);
+        --line-strong: rgba(247, 240, 228, 0.16);
+        --text: #f7f2ea;
+        --text-2: #b3aa9d;
+        --text-3: #9a9082;
+        --on-accent: #1a1206;
+        --accent: #e8a33d;
+        --accent-soft: #f2c179;
+        --ok: #7bb88f;
+        --warn: #d9a441;
+        --info: #8fa9c4;
+        --stop: #cf7b6a;
+        /* Generic families only: nothing may be fetched at render time. */
+        --sans: system-ui, sans-serif;
+        --mono: ui-monospace, monospace;
+      }
+
+      *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+      body {
+        background: var(--ink-900);
+        color: var(--text);
+        font-family: var(--sans);
+        -webkit-font-smoothing: antialiased;
+      }
+
+      #root {
+        position: relative;
+        width: 100%;
+        height: 100%;
+        overflow: hidden;
+      }
+
+      .clip {
+        position: absolute;
+        inset: 0;
+        width: 100%;
+        height: 100%;
+        box-sizing: border-box;
+      }
+
+      /* Untimed full-bleed background — needs its own positioning. */
+      .ground { position: absolute; inset: 0; background: var(--ink-900); z-index: 0; }
+
+      .scene {
+        position: absolute;
+        inset: 0;
+        width: 100%;
+        height: 100%;
+        box-sizing: border-box;
+      }
+
+      .mono { font-family: var(--mono); font-variant-numeric: tabular-nums; }
+      .eyebrow {
+        font-size: 22px;
+        font-weight: 500;
+        color: var(--text-3);
+        letter-spacing: 0.06em;
+        text-transform: uppercase;
+      }
+
+      .surface {
+        background: var(--ink-850);
+        border: 1px solid var(--line-faint);
+        border-radius: 18px;
+      }
+
+      .track { background: var(--ink-700); border-radius: 100px; overflow: hidden; }
+      .track-fill {
+        width: 100%;
+        height: 100%;
+        background: var(--accent);
+        transform-origin: left center;
+      }
+
+      /* ---------- Scene 1: the hook ---------- */
+      #s1-inner { padding: 0; }
+
+      .wordmark {
+        position: absolute;
+        left: 128px;
+        top: 84px;
+        display: flex;
+        align-items: center;
+        gap: 14px;
+        font-size: 26px;
+        font-weight: 500;
+        color: var(--text-2);
+        letter-spacing: 0.01em;
+      }
+      .wordmark-dot {
+        width: 14px;
+        height: 14px;
+        border-radius: 4px;
+        background: var(--accent);
+        display: block;
+      }
+
+      .hook-rail {
+        position: absolute;
+        left: 128px;
+        top: 250px;
+        width: 4px;
+        height: 580px;
+        background: var(--accent);
+        border-radius: 2px;
+      }
+      .hook-rail-glow {
+        position: absolute;
+        left: 100px;
+        top: 220px;
+        width: 60px;
+        height: 640px;
+        border-radius: 30px;
+        background: rgba(232, 163, 61, 0.6);
+        filter: blur(30px);
+        opacity: var(--rx-mid, 0.3);
+      }
+
+      .hook-lines {
+        position: absolute;
+        left: 196px;
+        top: 250px;
+        width: 1180px;
+        display: flex;
+        flex-direction: column;
+        gap: 6px;
+      }
+      .hook-line {
+        font-size: 92px;
+        font-weight: 500;
+        line-height: 1.24;
+        letter-spacing: -0.02em;
+        color: var(--text);
+      }
+
+      .hook-turn {
+        position: absolute;
+        left: 196px;
+        top: 736px;
+        width: 1500px;
+        font-size: 104px;
+        font-weight: 600;
+        line-height: 1.2;
+        letter-spacing: -0.025em;
+        color: var(--accent);
+      }
+
+      /* ---------- Scene 2: the town ---------- */
+      .journey-band {
+        position: absolute;
+        left: 128px;
+        top: 76px;
+        width: 1664px;
+        padding: 30px 40px 26px;
+      }
+      .journey-row {
+        display: flex;
+        align-items: flex-end;
+        justify-content: space-between;
+        gap: 48px;
+      }
+      .journey-title {
+        font-size: 52px;
+        font-weight: 600;
+        letter-spacing: -0.02em;
+        line-height: 1.15;
+      }
+      .journey-next { margin-top: 8px; font-size: 24px; color: var(--text-2); }
+      .journey-score { text-align: right; flex-shrink: 0; }
+      .journey-score-value {
+        font-family: var(--mono);
+        font-size: 44px;
+        font-weight: 500;
+        letter-spacing: -0.02em;
+        line-height: 1;
+      }
+      .journey-score-of { color: var(--text-3); font-size: 30px; }
+      .journey-score-label {
+        display: block;
+        margin-top: 6px;
+        font-size: 20px;
+        color: var(--text-3);
+      }
+      .journey-rail { margin-top: 22px; height: 5px; }
+
+      .town-box { position: absolute; left: 120px; top: 236px; width: 1040px; height: 640px; }
+      .town-box svg { display: block; width: 100%; height: 100%; }
+
+      .town-legend { position: absolute; left: 120px; top: 936px; width: 1040px; font-size: 20px; color: var(--text-3); }
+
+      .town-side {
+        position: absolute;
+        left: 1240px;
+        top: 300px;
+        width: 552px;
+        padding: 34px 36px 30px;
+      }
+      .level-name { font-size: 38px; font-weight: 600; letter-spacing: -0.015em; margin-top: 10px; }
+      .level-track { margin-top: 20px; height: 5px; }
+      .level-sub { margin-top: 12px; font-family: var(--mono); font-size: 23px; color: var(--accent-soft); }
+      .town-rule { height: 1px; background: var(--line-faint); margin: 26px 0 20px; }
+      .town-legend-row {
+        display: flex;
+        align-items: center;
+        gap: 14px;
+        padding: 9px 0;
+        font-size: 25px;
+        color: var(--text-2);
+      }
+      .town-legend-row.is-anchor { color: var(--text); font-weight: 500; }
+      .town-legend-dot { width: 9px; height: 9px; border-radius: 50%; flex-shrink: 0; }
+
+      /* ---------- Scene 3: one product, five engines ---------- */
+      .prod-card {
+        position: absolute;
+        left: 128px;
+        top: 250px;
+        width: 528px;
+        padding: 32px;
+        background: var(--ink-800);
+        border: 1px solid var(--line-faint);
+        border-radius: 18px;
+      }
+      .swatch {
+        width: 176px;
+        height: 176px;
+        border-radius: 12px;
+        background: linear-gradient(150deg, #7d1f2c 0%, #4d1520 52%, #e8a33d 140%);
+        border: 1px solid var(--line);
+      }
+      .prod-title { margin-top: 24px; font-size: 36px; font-weight: 600; letter-spacing: -0.015em; line-height: 1.2; }
+      .prod-facts { margin-top: 18px; display: flex; flex-direction: column; gap: 10px; }
+      .prod-fact { display: flex; justify-content: space-between; gap: 20px; font-size: 23px; color: var(--text-2); }
+      .prod-fact .mono { color: var(--accent-soft); }
+      .prod-rule { height: 1px; background: var(--line-faint); margin: 24px 0 20px; }
+      .prod-fabric { font-size: 22px; color: var(--text-2); line-height: 1.5; }
+
+      .stage {
+        position: absolute;
+        left: 720px;
+        width: 1072px;
+        height: 126px;
+        padding: 22px 30px;
+        display: flex;
+        align-items: center;
+        gap: 26px;
+        background: var(--ink-800);
+        border: 1px solid var(--line-faint);
+        border-radius: 16px;
+      }
+      .stage-num {
+        font-family: var(--mono);
+        font-size: 22px;
+        color: var(--accent);
+        width: 40px;
+        flex-shrink: 0;
+        letter-spacing: 0.02em;
+      }
+      .stage-body { flex: 1; min-width: 0; }
+      .stage-title { font-size: 33px; font-weight: 600; letter-spacing: -0.015em; line-height: 1.2; }
+      .stage-sub { margin-top: 7px; font-size: 21px; color: var(--text-3); line-height: 1.4; }
+
+      .stage-cta {
+        margin-left: auto;
+        flex-shrink: 0;
+        display: flex;
+        align-items: center;
+        gap: 24px;
+      }
+      .stage-wide { flex-wrap: wrap; align-content: center; row-gap: 14px; padding: 20px 30px; }
+      .stage-wide .stage-body { flex: 1 1 100%; }
+      .stage-wide .stage-cta { margin-left: 66px; }
+      .stage-profit { text-align: right; }
+      .stage-profit-value { font-family: var(--mono); font-size: 34px; font-weight: 500; letter-spacing: -0.02em; color: var(--ok); }
+      .stage-profit-note { margin-top: 5px; font-size: 19px; line-height: 1.3; color: var(--text-3); }
+      .btn-primary {
+        display: inline-flex;
+        align-items: center;
+        gap: 10px;
+        background: var(--accent);
+        color: var(--on-accent);
+        font-weight: 600;
+        font-size: 23px;
+        line-height: 1;
+        padding: 15px 24px;
+        border-radius: 8px;
+        white-space: nowrap;
+      }
+      .btn-trophy { width: 22px; height: 22px; display: block; flex-shrink: 0; }
+
+      .honesty {
+        position: absolute;
+        left: 128px;
+        top: 884px;
+        width: 1664px;
+        padding: 24px 34px;
+        display: flex;
+        align-items: center;
+        gap: 34px;
+        background: var(--ink-850);
+        border: 1px solid var(--line-faint);
+        border-radius: 16px;
+      }
+      .honesty-lead { font-size: 21px; color: var(--text-3); flex-shrink: 0; }
+      .honesty-tags { display: flex; gap: 16px; flex-shrink: 0; }
+      .tag {
+        font-family: var(--mono);
+        font-size: 21px;
+        font-weight: 500;
+        letter-spacing: 0.04em;
+        padding: 9px 16px;
+        border-radius: 100px;
+      }
+      .tag-live { background: rgba(123, 184, 143, 0.14); color: var(--ok); }
+      .tag-sandbox { background: rgba(217, 164, 65, 0.14); color: var(--warn); }
+      .tag-staged { background: rgba(143, 169, 196, 0.14); color: var(--info); }
+      .tag-fallback { background: rgba(207, 123, 106, 0.14); color: var(--stop); }
+      .honesty-note { font-size: 21px; color: var(--text-2); }
+
+      /* ---------- Scene 4: level up ---------- */
+      .town-back { position: absolute; left: 230px; top: 432px; width: 1460px; height: 560px; opacity: 1; }
+      .town-back svg { display: block; width: 100%; height: 100%; }
+
+      /* The outro is two zones, not one: type above, the fully lit town
+         below. A shade band is only needed to keep them from touching, so it
+         is a thin gradient rather than a wash over the whole frame. */
+      .lvl-veil {
+        position: absolute;
+        left: 0;
+        top: 380px;
+        width: 100%;
+        height: 200px;
+        background: linear-gradient(
+          to bottom,
+          var(--ink-900) 0%,
+          rgba(18, 16, 14, 0.7) 55%,
+          rgba(18, 16, 14, 0) 100%
+        );
+      }
+
+      .lvl-copy {
+        position: absolute;
+        left: 128px;
+        top: 168px;
+        width: 1664px;
+        text-align: center;
+      }
+      .lvl-line {
+        font-size: 92px;
+        font-weight: 600;
+        letter-spacing: -0.025em;
+        line-height: 1.15;
+        color: var(--text);
+      }
+      .lvl-arrow { color: var(--text-3); padding: 0 22px; display: inline-block; }
+      .lvl-next { color: var(--accent); }
+      .lvl-promise {
+        margin-top: 44px;
+        font-size: 38px;
+        font-weight: 500;
+        letter-spacing: -0.01em;
+        color: var(--text-2);
+      }
+
+      /* ---------- Shared type helpers ---------- */
+      /* Names sit over wall faces as often as over the plot floor, so each
+         one carries its own ink halo — invisible on the floor, legible on a
+         volume. Same reason the canvas labels were painted last. */
+      .town-label {
+        font-family: var(--sans);
+        font-size: 22px;
+        fill: var(--text-2);
+        text-anchor: middle;
+        paint-order: stroke fill;
+        stroke: var(--ink-900);
+        stroke-width: 5px;
+        stroke-linejoin: round;
+      }
+      .town-label.is-anchor { fill: var(--text); font-weight: 600; }
+
+      /* Audio-reactive warmth behind the plot and the outro rule. */
+      .warm {
+        position: absolute;
+        border-radius: 50%;
+        background: rgba(232, 163, 61, 0.5);
+        filter: blur(90px);
+      }
+      #warm-a { left: 320px; top: 400px; width: 640px; height: 480px; opacity: var(--rx-bass, 0.1); }
+      #warm-b { left: 460px; top: 440px; width: 1000px; height: 620px; opacity: var(--rx-bass, 0.1); }
+      .lvl-rule {
+        position: absolute;
+        left: 760px;
+        top: 452px;
+        width: 400px;
+        height: 3px;
+        background: var(--accent);
+        border-radius: 2px;
+        opacity: var(--rx-mid, 0.3);
+      }
+    </style>
+  </head>
+  <body>
+    <div
+      id="root"
+      data-composition-id="main"
+      data-start="0"
+      data-width="1920"
+      data-height="1080"
+      data-duration="20"
+      data-fps="30"
+    >
+      <div class="ground"></div>
+
+      <!-- ============ Scene 1 — "Three things he already has" (0.0 - 4.4) ============ -->
+      <section id="s1" class="clip" data-start="0" data-duration="4.4" data-track-index="1">
+        <div class="scene" id="s1-inner">
+          <div class="hook-rail-glow" id="rail-glow"></div>
+          <div class="hook-rail" id="rail"></div>
+          <div class="wordmark" id="s1-mark">
+            <span class="wordmark-dot"></span>
+            <span>DukaanQuest</span>
+          </div>
+          <div class="hook-lines">
+            <p class="hook-line" id="hook-1">Products.</p>
+            <p class="hook-line" id="hook-2">Customers.</p>
+            <p class="hook-line" id="hook-3">A shop.</p>
+          </div>
+          <p class="hook-turn" id="hook-turn">What&rsquo;s missing is the team.</p>
+        </div>
+      </section>
+
+      <!-- ============ Scene 2 — "The town" (4.1 - 10.4) ============ -->
+      <section id="s2" class="clip" data-start="4.1" data-duration="6.3" data-track-index="2">
+        <div class="scene" id="s2-inner">
+          <div class="warm" id="warm-a"></div>
+          <div class="surface journey-band" id="journey-band">
+            <div class="journey-row">
+              <div>
+                <h2 class="journey-title">From photo to profit</h2>
+                <p class="journey-next">Next up: list on marketplaces</p>
+              </div>
+              <div class="journey-score">
+                <span class="journey-score-value">2<span class="journey-score-of">/5</span></span>
+                <span class="journey-score-label">steps done</span>
+              </div>
+            </div>
+            <div class="track journey-rail"><div class="track-fill" id="journey-fill"></div></div>
+          </div>
+
+          <div class="town-box" id="town-a" data-layout-allow-overflow></div>
+          <p class="town-legend">Each building is one engine of the business.</p>
+
+          <aside class="surface town-side" id="town-side">
+            <p class="eyebrow">Level 2</p>
+            <p class="level-name">Mohalla Merchant</p>
+            <div class="track level-track"><div class="track-fill" id="level-fill"></div></div>
+            <p class="level-sub">55 XP to Digital Vyapari</p>
+            <div class="town-rule"></div>
+            <div class="town-legend-row is-anchor"><span class="town-legend-dot" style="background:#e8a33d"></span><span>Your shop</span></div>
+            <div class="town-legend-row"><span class="town-legend-dot" style="background:#e8a33d"></span><span>Photo studio</span></div>
+            <div class="town-legend-row"><span class="town-legend-dot" style="background:#7bb88f"></span><span>Packaging</span></div>
+            <div class="town-legend-row"><span class="town-legend-dot" style="background:#7bb88f"></span><span>Customer reach</span></div>
+            <div class="town-legend-row"><span class="town-legend-dot" style="background:#f2c179"></span><span>What-if room</span></div>
+          </aside>
+        </div>
+      </section>
+
+      <!-- ============ Scene 3 — "One product through five engines" (10.1 - 17.3) ============ -->
+      <section id="s3" class="clip" data-start="10.1" data-duration="7.2" data-track-index="3">
+        <div class="scene" id="s3-inner">
+          <p class="eyebrow" style="position:absolute; left:128px; top:150px;" data-layout-allow-overlap>Listing everything at once</p>
+          <p class="eyebrow" style="position:absolute; left:128px; top:188px; color:#b3aa9d; letter-spacing:0; text-transform:none; font-size:26px;" data-layout-allow-overlap>One record, five engines</p>
+
+          <div class="prod-card" id="prod-card">
+            <div class="swatch"></div>
+            <p class="prod-title">Royal Kanjeevaram Saree</p>
+            <div class="prod-facts">
+              <p class="prod-fact"><span class="mono">SG-01</span><span>14 in stock</span></p>
+              <p class="prod-fact"><span class="mono">&#8377;4,850</span><span>Maroon Gold</span></p>
+            </div>
+            <div class="prod-rule"></div>
+            <p class="prod-fabric">100% Pure Mulberry Silk with metallic Gold Zari border</p>
+          </div>
+
+          <div class="stage" id="stage-1" style="top: 232px;">
+            <span class="stage-num">01</span>
+            <div class="stage-body">
+              <p class="stage-title">What Gemini read</p>
+              <p class="stage-sub">Fabric, listing title, and a compliance score, from one photo.</p>
+            </div>
+          </div>
+
+          <div class="stage" id="stage-2" style="top: 378px;">
+            <span class="stage-num">02</span>
+            <div class="stage-body">
+              <p class="stage-title">Same product, five marketplaces</p>
+              <p class="stage-sub">Amazon &middot; Flipkart &middot; Meesho &middot; Myntra &middot; Nykaa</p>
+            </div>
+          </div>
+
+          <div class="stage" id="stage-3" style="top: 524px;">
+            <span class="stage-num">03</span>
+            <div class="stage-body">
+              <p class="stage-title">Send to 5 customers</p>
+              <p class="stage-sub">Segmentation, consent check, translation and delivery in one workflow.</p>
+            </div>
+          </div>
+
+          <div class="stage stage-wide" id="stage-4" style="top: 670px; height: 190px;">
+            <span class="stage-num">04</span>
+            <div class="stage-body">
+              <p class="stage-title">What each option would earn you</p>
+              <p class="stage-sub">Arithmetic in the browser, not a guess.</p>
+            </div>
+            <div class="stage-cta">
+              <div class="stage-profit">
+                <p class="stage-profit-value">&#8377;35,044</p>
+                <p class="stage-profit-note">43% margin &middot; back in ~2 days</p>
+              </div>
+              <span class="btn-primary" id="do-this"><svg class="btn-trophy" viewBox="0 0 24 24" aria-hidden="true"><path fill="#1a1206" d="M12 2.6l2.9 5.9 6.5.95-4.7 4.58 1.11 6.47L12 17.45 6.19 20.5l1.11-6.47L2.6 9.45l6.5-.95L12 2.6z"/></svg>Do this one</span>
+            </div>
+          </div>
+
+          <div class="honesty" id="honesty">
+            <span class="honesty-lead">Integration state</span>
+            <div class="honesty-tags">
+              <span class="tag tag-live" id="tag-live">LIVE</span>
+              <span class="tag tag-sandbox" id="tag-sandbox">SANDBOX</span>
+              <span class="tag tag-staged" id="tag-staged">STAGED</span>
+              <span class="tag tag-fallback" id="tag-fallback">FALLBACK</span>
+            </div>
+            <span class="honesty-note" id="honesty-note">Every integration reports its real state.</span>
+          </div>
+        </div>
+      </section>
+
+      <!-- ============ Scene 4 — "Level up" (17.0 - 20.0) ============ -->
+      <section id="s4" class="clip" data-start="17" data-duration="3" data-track-index="4">
+        <div class="scene" id="s4-inner">
+          <div class="warm" id="warm-b"></div>
+          <div class="town-back" id="town-b" data-layout-allow-overflow data-layout-allow-overlap data-layout-allow-occlusion data-layout-ignore></div>
+          <div class="lvl-veil"></div>
+          <div class="lvl-copy">
+            <p class="lvl-line" id="lvl-line"><span id="lvl-from">Mohalla Merchant</span><span class="lvl-arrow">&rarr;</span><span class="lvl-next" id="lvl-to">Digital Vyapari</span></p>
+            <p class="lvl-promise" id="lvl-promise">Create once. Sell everywhere. Retain. Reach. Simulate.</p>
+          </div>
+          <div class="lvl-rule" id="lvl-rule"></div>
+        </div>
+      </section>
+    </div>
+
+    <!-- ============ Audio ============ -->
+    <audio
+      id="bgm"
+      src="assets/music/bed.mp3"
+      data-start="0"
+      data-duration="20"
+      data-track-index="10"
+      data-volume="0.46"
+      data-automation='{"version":1,"lanes":[{"target":"volume","points":[{"t":0,"v":0},{"t":0.7,"v":0.46},{"t":6.0,"v":0.5},{"t":10.1,"v":0.5},{"t":10.6,"v":0.37},{"t":16.6,"v":0.37},{"t":17.1,"v":0.3},{"t":17.7,"v":0.44},{"t":19.35,"v":0.44},{"t":19.95,"v":0}]}]}'
+    ></audio>
+
+    <audio id="sfx-hook-2" src="assets/sfx/select_008.ogg" data-start="1.52" data-duration="0.05" data-track-index="21" data-volume="0.4"></audio>
+    <audio id="sfx-hook-3" src="assets/sfx/click_001.ogg" data-start="2.52" data-duration="0.1" data-track-index="22" data-volume="0.45"></audio>
+    <audio id="sfx-turn" src="assets/sfx/impactSoft_heavy_000.ogg" data-start="3.02" data-duration="0.51" data-track-index="23" data-volume="0.9"></audio>
+
+    <audio id="sfx-town-1" src="assets/sfx/click1.ogg" data-start="4.52" data-duration="0.09" data-track-index="24" data-volume="0.3"></audio>
+    <audio id="sfx-town-2" src="assets/sfx/click2.ogg" data-start="5.52" data-duration="0.06" data-track-index="25" data-volume="0.3"></audio>
+    <audio id="sfx-town-3" src="assets/sfx/click3.ogg" data-start="6.52" data-duration="0.09" data-track-index="26" data-volume="0.3"></audio>
+    <audio id="sfx-town-4" src="assets/sfx/click4.ogg" data-start="7.52" data-duration="0.04" data-track-index="27" data-volume="0.3"></audio>
+    <audio id="sfx-town-5" src="assets/sfx/click5.ogg" data-start="8.52" data-duration="0.03" data-track-index="28" data-volume="0.32"></audio>
+    <audio id="sfx-town-settle" src="assets/sfx/switch_002.ogg" data-start="9.02" data-duration="0.61" data-track-index="29" data-volume="0.26"></audio>
+
+    <audio id="sfx-stage-1" src="assets/sfx/click_001.ogg" data-start="10.52" data-duration="0.1" data-track-index="30" data-volume="0.34"></audio>
+    <audio id="sfx-stage-2" src="assets/sfx/select_008.ogg" data-start="11.52" data-duration="0.05" data-track-index="31" data-volume="0.34"></audio>
+    <audio id="sfx-stage-3" src="assets/sfx/click_001.ogg" data-start="12.52" data-duration="0.1" data-track-index="32" data-volume="0.34"></audio>
+    <audio id="sfx-stage-4" src="assets/sfx/click_001.ogg" data-start="13.52" data-duration="0.1" data-track-index="33" data-volume="0.36"></audio>
+    <audio id="sfx-tag-1" src="assets/sfx/click4.ogg" data-start="14.52" data-duration="0.04" data-track-index="34" data-volume="0.22"></audio>
+    <audio id="sfx-tag-2" src="assets/sfx/click4.ogg" data-start="15.02" data-duration="0.04" data-track-index="35" data-volume="0.22"></audio>
+    <audio id="sfx-tag-3" src="assets/sfx/click4.ogg" data-start="15.52" data-duration="0.04" data-track-index="36" data-volume="0.22"></audio>
+    <audio id="sfx-tag-4" src="assets/sfx/click4.ogg" data-start="16.02" data-duration="0.04" data-track-index="37" data-volume="0.22"></audio>
+
+    <audio id="sfx-levelup" src="assets/sfx/impactBell_heavy_000.ogg" data-start="17.52" data-duration="1.48" data-track-index="38" data-volume="0.5"></audio>
+    <audio id="sfx-levelup-hit" src="assets/sfx/impactMetal_heavy_000.ogg" data-start="17.52" data-duration="0.17" data-track-index="39" data-volume="0.5"></audio>
+
+    <script>
+      /* ================================================================
+         The Digital Town, rebuilt from
+         dukaanquest-app/src/components/game/DigitalDukaanCanvas.jsx.
+         Same projection, same painter's order, same palette, same
+         geometry constants — only the renderer changed from Canvas 2D
+         to SVG so the volumes can be tweened.
+         ================================================================ */
+      const TOWN = {
+        RX: 5.4,
+        RY: 3.6,
+        MAXH: 2.95,
+        // Painter's order is far-to-near by Y, then left-to-right.
+        buildings: [
+          { key: 'warehouse',  label: 'Packaging',      gx: -2.4, gy: 1.4, w: 2.5, d: 1.5, h: 2.05, tint: '#7bb88f' },
+          { key: 'tower',      label: 'Customer reach', gx: 0.9,  gy: -2.4, w: 2.3, d: 1.4, h: 2.4,  tint: '#7bb88f' },
+          { key: 'shop',       label: 'Your shop',      gx: 0,    gy: 0,    w: 3.0, d: 1.8, h: 2.95, tint: '#e8a33d', anchor: true },
+          { key: 'studio',     label: 'Photo studio',   gx: -1.2, gy: 2.7,  w: 2.5, d: 1.5, h: 1.75, tint: '#e8a33d' },
+          { key: 'observatory',label: 'What-if room',   gx: 2.7,  gy: -1.2, w: 2.3, d: 1.4, h: 1.55, tint: '#f2c179' }
+        ]
+      };
+
+      const T = {
+        plot: '#1b1815',
+        plotEdge: 'rgba(247,240,228,0.07)',
+        grid: 'rgba(247,240,228,0.05)',
+        wallLeft: '#3d362c',
+        wallRight: '#241f19',
+        // The lit instance lifts its dark face so the volumes still read as
+        // volumes at outro scale instead of floating roof plates.
+        wallRightLit: '#332c24',
+        roof: '#4d4438',
+        roofAnchor: '#61533f',
+        edge: 'rgba(247,240,228,0.15)'
+      };
+
+      function buildTown(box, opts) {
+        const uid = opts.uid;
+        const lit = opts.lit === true;
+        const W = opts.w;
+        const H = opts.h;
+        const s = Math.min((W * 0.94) / (2 * TOWN.RX), (H * 0.9) / (2 * TOWN.RY + TOWN.MAXH));
+        const cx = W / 2;
+        const cy = H / 2 + (TOWN.MAXH * s) / 2 + 6;
+        const P = (wx, wy, wz) => ({
+          x: (cx + (wx - wy) * s).toFixed(2),
+          y: (cy + (wx + wy) * s * 0.5 - wz * s).toFixed(2)
+        });
+        const pts = (list) => list.map((p) => p.x + ',' + p.y).join(' ');
+
+        let svg =
+          '<svg viewBox="0 0 ' + W + ' ' + H + '" xmlns="http://www.w3.org/2000/svg">' +
+          '<defs><radialGradient id="shadow-' + uid + '">' +
+          '<stop offset="0" stop-color="#000000" stop-opacity="0.5"/>' +
+          '<stop offset="0.6" stop-color="#000000" stop-opacity="0.22"/>' +
+          '<stop offset="1" stop-color="#000000" stop-opacity="0"/>' +
+          '</radialGradient>' +
+          '<clipPath id="plot-' + uid + '"><polygon points="' +
+          pts([P(-TOWN.RX, -TOWN.RY, 0), P(TOWN.RX, -TOWN.RY, 0), P(TOWN.RX, TOWN.RY, 0), P(-TOWN.RX, TOWN.RY, 0)]) +
+          '"/></clipPath></defs>';
+
+        // Bounded plot with a clipped grid.
+        svg += '<polygon points="' +
+          pts([P(-TOWN.RX, -TOWN.RY, 0), P(TOWN.RX, -TOWN.RY, 0), P(TOWN.RX, TOWN.RY, 0), P(-TOWN.RX, TOWN.RY, 0)]) +
+          '" fill="' + T.plot + '" stroke="' + T.plotEdge + '" stroke-width="1"/>';
+        svg += '<g clip-path="url(#plot-' + uid + ')" stroke="' + T.grid + '" stroke-width="1">';
+        for (let i = -5; i <= 5; i++) {
+          const a = P(i, -TOWN.RY, 0), b = P(i, TOWN.RY, 0);
+          svg += '<line x1="' + a.x + '" y1="' + a.y + '" x2="' + b.x + '" y2="' + b.y + '"/>';
+          const c = P(-TOWN.RX, i, 0), d = P(TOWN.RX, i, 0);
+          svg += '<line x1="' + c.x + '" y1="' + c.y + '" x2="' + d.x + '" y2="' + d.y + '"/>';
+        }
+        svg += '</g>';
+
+        // One soft elliptical contact shadow per building, drawn first.
+        svg += '<g>';
+        TOWN.buildings.forEach(function (b) {
+          const c = P(b.gx, b.gy, 0);
+          const spread = ((b.w + b.d) / 2) * s * 0.55;
+          svg += '<ellipse cx="' + c.x + '" cy="' + c.y + '" rx="' + spread.toFixed(2) +
+            '" ry="' + (spread * 0.34).toFixed(2) + '" fill="url(#shadow-' + uid + ')"/>';
+        });
+        svg += '</g>';
+
+        // Paths from the anchor shop out to each engine building.
+        svg += '<g stroke="rgba(247,240,228,0.07)" stroke-width="1">';
+        TOWN.buildings.forEach(function (b) {
+          if (b.anchor) return;
+          const a = P(0, 0, 0), t = P(b.gx, b.gy, 0);
+          svg += '<line x1="' + a.x + '" y1="' + a.y + '" x2="' + t.x + '" y2="' + t.y + '"/>';
+        });
+        svg += '</g>';
+
+        // Volumes, far to near.
+        svg += '<g>';
+        TOWN.buildings.forEach(function (b) {
+          const x0 = b.gx - b.w / 2, x1 = b.gx + b.w / 2;
+          const y0 = b.gy - b.d / 2, y1 = b.gy + b.d / 2;
+          const roof = [P(x0, y0, b.h), P(x1, y0, b.h), P(x1, y1, b.h), P(x0, y1, b.h)];
+          const b00 = P(x0, y0, 0), b01 = P(x0, y1, 0), b11 = P(x1, y1, 0);
+
+          svg += '<g class="bld" data-key="' + b.key + '">';
+          svg += '<polygon points="' + pts([roof[3], roof[0], b00, b01]) + '" fill="' + T.wallLeft + '"/>';
+          svg += '<polygon points="' + pts([roof[3], roof[2], b11, b01]) + '" fill="' + (lit ? T.wallRightLit : T.wallRight) + '"/>';
+          svg += '<polygon points="' +
+            pts([P(x0, y1, b.h * 0.62), P(x1, y1, b.h * 0.62), P(x1, y1, b.h * 0.34), P(x0, y1, b.h * 0.34)]) +
+            '" fill="rgba(232,163,61,0.16)"/>';
+          svg += '<polygon points="' + pts(roof) + '" fill="' + (b.anchor ? T.roofAnchor : T.roof) +
+            '" stroke="' + (lit || b.anchor ? 'rgba(232,163,61,0.5)' : T.edge) + '" stroke-width="1"/>';
+
+          const mid = P(b.gx, b.gy, b.h);
+          svg += '<line x1="' + roof[0].x + '" y1="' + roof[0].y + '" x2="' + mid.x + '" y2="' + mid.y +
+            '" stroke="' + (lit || b.anchor ? 'rgba(232,163,61,0.3)' : 'rgba(247,240,228,0.09)') + '" stroke-width="1"/>';
+          svg += '<line x1="' + roof[0].x + '" y1="' + roof[0].y + '" x2="' + roof[1].x + '" y2="' + roof[1].y +
+            '" stroke="rgba(247,240,228,0.07)" stroke-width="1"/>';
+
+          // Saffron cornice on the two near roof edges — the one lit accent.
+          svg += '<line x1="' + roof[3].x + '" y1="' + roof[3].y + '" x2="' + roof[2].x + '" y2="' + roof[2].y +
+            '" stroke="' + b.tint + '" stroke-opacity="' + (lit || b.anchor ? 0.95 : 0.55) +
+            '" stroke-width="2.5" stroke-linecap="round"/>';
+
+          if (b.anchor) {
+            const aw = 0.22 * b.h;
+            svg += '<polygon points="' +
+              pts([P(x0, y1, b.h * 0.46), P(x1, y1, b.h * 0.46), P(x1, y1, b.h * 0.46 - aw), P(x0, y1, b.h * 0.46 - aw)]) +
+              '" fill="rgba(232,163,61,0.36)"/>';
+            svg += '<polygon points="' +
+              pts([P(x0, y1, b.h * 0.46 - aw), P(x1, y1, b.h * 0.46 - aw), P(x1, y1, b.h * 0.46 - aw * 2), P(x0, y1, b.h * 0.46 - aw * 2)]) +
+              '" fill="rgba(232,163,61,0.16)"/>';
+            const c = P(b.gx, b.gy, 0);
+            svg += '<ellipse cx="' + c.x + '" cy="' + c.y + '" rx="' + ((b.w / 2) * s * 1.15).toFixed(2) +
+              '" ry="' + ((b.w / 2) * s * 0.55).toFixed(2) + '" fill="none" stroke="rgba(232,163,61,0.24)" stroke-width="1"/>';
+          }
+          svg += '</g>';
+        });
+        svg += '</g>';
+
+        // Labels last, so a nearer building never clips a further name. The
+        // Scene 4 instance is a backdrop behind the outro type, so it ships
+        // without labels rather than with unreadable ones.
+        if (opts.labels !== false) {
+          svg += '<g>';
+          TOWN.buildings.forEach(function (b) {
+            const base = P(b.gx, b.gy + b.d / 2, 0);
+            svg += '<text class="town-label' + (b.anchor ? ' is-anchor' : '') + '" data-key="' + b.key +
+              '" x="' + base.x + '" y="' + (parseFloat(base.y) + 42).toFixed(2) + '">' + b.label + '</text>';
+          });
+          svg += '</g>';
+        }
+        svg += '</svg>';
+
+        box.innerHTML = svg;
+      }
+
+      buildTown(document.getElementById('town-a'), { uid: 'a', w: 1040, h: 640, lit: false });
+      buildTown(document.getElementById('town-b'), { uid: 'b', w: 1460, h: 560, lit: true, labels: false });
+
+      /* ================================================================
+         Timeline. Every tween is seek-safe: fromTo/from states are set
+         at time 0 on the timeline so a seek to any t resolves the same
+         pixels. No clocks, no randomness, no DOM reads in the loop.
+         ================================================================ */
+      const tl = gsap.timeline({ paused: true });
+
+      const IN = { y: 34, opacity: 0, duration: 0.5, ease: 'power3.out' };
+
+      /* ---------- Scene 1: the hook ---------- */
+      tl.fromTo('#rail', { scaleY: 0.34 }, { scaleY: 1, duration: 0.55, ease: 'power2.out', transformOrigin: 'top center' }, 0.0)
+        .fromTo('#s1-mark', { y: -16 }, { y: 0, duration: 0.5, ease: 'power3.out' }, 0.0);
+
+      // beat-grid: hook lines at 0.52s, 1.52s, 2.52s (every other beat).
+      tl.fromTo('#hook-1', IN, { opacity: 1, y: 0, duration: 0.42, ease: 'power3.out' }, 0.52)
+        .fromTo('#hook-2', IN, { opacity: 1, y: 0, duration: 0.42, ease: 'power3.out' }, 1.52)
+        .fromTo('#hook-3', IN, { opacity: 1, y: 0, duration: 0.42, ease: 'power3.out' }, 2.52)
+        // beat-grid: the turn lands on the next beat, 3.02s, and holds 1.38s.
+        .fromTo('#hook-turn', { y: 46, opacity: 0, scale: 0.985 }, { y: 0, opacity: 1, scale: 1, duration: 0.5, ease: 'power3.out' }, 3.02)
+        .to('#s1-inner', { opacity: 0, duration: 0.3, ease: 'power1.inOut' }, 4.1);
+
+      /* ---------- Scene 2: the town ---------- */
+      tl.fromTo('#s2-inner', { opacity: 0 }, { opacity: 1, duration: 0.3, ease: 'power1.inOut' }, 4.1)
+        .fromTo('#journey-band', { y: -18, opacity: 0 }, { y: 0, opacity: 1, duration: 0.45, ease: 'power3.out' }, 4.3)
+        .fromTo('#town-side', { y: 18, opacity: 0 }, { y: 0, opacity: 1, duration: 0.45, ease: 'power3.out' }, 4.45)
+        .fromTo('#town-a', { opacity: 0 }, { opacity: 1, duration: 0.4, ease: 'power1.out' }, 4.35);
+
+      // Set every building to "not yet risen" and hold it there.
+      tl.set('#town-a .bld', { scaleY: 0.02, opacity: 0, transformOrigin: '50% 100%' }, 0)
+        .set('#town-a .town-label', { opacity: 0, y: -8 }, 0);
+
+      // beat-grid: five buildings rise on every other beat, 4.52s .. 8.52s.
+      const RISE = [4.52, 5.52, 6.52, 7.52, 8.52];
+      const ORDER = ['warehouse', 'tower', 'shop', 'studio', 'observatory'];
+      ORDER.forEach(function (key, i) {
+        const t = RISE[i];
+        tl.to('#town-a .bld[data-key="' + key + '"]', { opacity: 1, duration: 0.18, ease: 'none' }, t)
+          .to('#town-a .bld[data-key="' + key + '"]', { scaleY: 1, duration: 0.62, ease: 'power3.out', transformOrigin: '50% 100%' }, t)
+          .to('#town-a .town-label[data-key="' + key + '"]', { opacity: 1, y: 0, duration: 0.34, ease: 'power2.out' }, t + 0.42);
+      });
+
+      // The rail states its progress as the buildings land.
+      tl.fromTo('#journey-fill', { scaleX: 0.04 }, { scaleX: 0.4, duration: 0.7, ease: 'power2.out' }, 4.6);
+      tl.fromTo('#level-fill', { scaleX: 0.55 }, { scaleX: 0.91, duration: 0.7, ease: 'power2.out' }, 4.6);
+
+      // beat-locked: 9.02s is a strongCue (intensity 1.00). The plot settles
+      // and the whole town reads as one completed state.
+      tl.fromTo('#town-a', { scale: 1 }, { scale: 1.035, duration: 0.6, ease: 'power2.out', transformOrigin: '50% 60%', immediateRender: false }, 9.02)
+        .to('#s2-inner', { opacity: 0, duration: 0.3, ease: 'power1.inOut' }, 10.1);
+
+      /* ---------- Scene 3: one product, five engines ---------- */
+      tl.fromTo('#s3-inner', { opacity: 0 }, { opacity: 1, duration: 0.3, ease: 'power1.inOut' }, 10.1)
+        .fromTo('#prod-card', { x: -26, opacity: 0 }, { x: 0, opacity: 1, duration: 0.5, ease: 'power3.out' }, 10.3);
+
+      const STAGE_IN = { x: 30, opacity: 0, duration: 0.44, ease: 'power3.out' };
+      // beat-grid: four stages on every other beat, 10.52s .. 13.52s.
+      ['stage-1', 'stage-2', 'stage-3', 'stage-4'].forEach(function (id, i) {
+        tl.fromTo('#' + id, STAGE_IN, { x: 0, opacity: 1, duration: 0.44, ease: 'power3.out' }, 10.52 + i);
+      });
+
+      tl.fromTo('#do-this', { scale: 0.94, opacity: 0.6 }, { scale: 1, opacity: 1, duration: 0.36, ease: 'back.out(2)' }, 13.9);
+      tl.fromTo('#honesty', { y: 22, opacity: 0 }, { y: 0, opacity: 1, duration: 0.42, ease: 'power3.out' }, 14.3);
+
+      // beat-grid: four status tags on consecutive beats, 14.52s .. 16.02s.
+      ['tag-live', 'tag-sandbox', 'tag-staged', 'tag-fallback'].forEach(function (id, i) {
+        tl.fromTo('#' + id, { opacity: 0, y: 10 }, { opacity: 1, y: 0, duration: 0.3, ease: 'power2.out' }, 14.52 + i * 0.5);
+      });
+      tl.fromTo('#honesty-note', { opacity: 0 }, { opacity: 1, duration: 0.4, ease: 'power2.out' }, 16.52);
+      tl.to('#s3-inner', { opacity: 0, duration: 0.3, ease: 'power1.inOut' }, 17.0);
+
+      /* ---------- Scene 4: level up ---------- */
+      tl.fromTo('#s4-inner', { opacity: 0 }, { opacity: 1, duration: 0.3, ease: 'power1.inOut' }, 17.0)
+        .fromTo('#town-b', { opacity: 0, y: 26 }, { opacity: 0.92, y: 0, duration: 0.5, ease: 'power3.out' }, 17.1)
+        // beat-locked: 17.52s is a strongCue (intensity 1.00).
+        .fromTo('#lvl-line', { y: 46, opacity: 0, scale: 1.05 }, { y: 0, opacity: 1, scale: 1, duration: 0.42, ease: 'power4.out', transformOrigin: '50% 50%' }, 17.52)
+        .fromTo('#lvl-to', { opacity: 0 }, { opacity: 1, duration: 0.3, ease: 'power2.out' }, 17.68)
+        .fromTo('#lvl-promise', { y: 22, opacity: 0 }, { y: 0, opacity: 1, duration: 0.5, ease: 'power3.out' }, 18.32)
+        .fromTo('#lvl-rule', { scaleX: 0, opacity: 0 }, { scaleX: 1, opacity: 1, duration: 0.5, ease: 'power2.out', transformOrigin: 'left center' }, 18.62)
+        // Hold, then fall to black over the last 0.55s.
+        .to('#s4-inner', { opacity: 0, duration: 0.55, ease: 'power2.inOut' }, 19.45);
+
+      /* ---------- Audio-reactive: subtle, pre-extracted, seek-safe ----------
+         Bass lifts the warmth behind the plot; mid-band lifts the saffron
+         rail glow and the outro rule. Both are CSS custom properties, so
+         nothing is tweened twice and the timeline stays the single source
+         of truth for time. */
+      const A = window.BED_AUDIO;
+      if (A) {
+        const root = document.getElementById('root');
+        const setVar = function (name, value) { root.style.setProperty(name, value.toFixed(3)); };
+        for (let f = 0; f < A.totalFrames; f++) {
+          tl.call(function (bass, mid) {
+            return function () {
+              setVar('--rx-bass', 0.06 + bass * 0.1);
+              setVar('--rx-mid', 0.12 + mid * 0.16);
+            };
+          }(A.bass[f], A.mid[f]), [], f / A.fps);
+        }
+      }
+
+      window.__timelines['main'] = tl;
+    </script>
+  </body>
+</html>

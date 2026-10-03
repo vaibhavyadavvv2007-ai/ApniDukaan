@@ -1,0 +1,6 @@
+Introducing DukaanQuest: one product record becomes a marketplace listing, a
+regional-language WhatsApp campaign, and a profit simulation — and the shop
+visibly levels up as you do it.
+
+From photo to profit. Every integration reports whether it is LIVE, SANDBOX,
+STAGED or FALLBACK, because the numbers are only worth anything if they are honest.

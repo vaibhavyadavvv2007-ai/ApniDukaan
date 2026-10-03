@@ -1,4 +1,4 @@
-import React, { useState, useRef } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import { 
   Sparkles, 
   Download, 
@@ -9,6 +9,7 @@ import {
 } from 'lucide-react';
 import confetti from 'canvas-confetti';
 import * as api from '../../services/api';
+import { prepareWhiteBackgroundAsset } from '../../utils/whiteBackground';
 
 const CONFETTI_COLORS = ['#E8A33D', '#F2C179', '#7BB88F'];
 
@@ -22,7 +23,19 @@ export default function GeminiPhotoStudio({ sampleProducts, t, onNavigateToCatal
   const [uploadedImagePreview, setUploadedImagePreview] = useState(null);
   const [apiStatus, setApiStatus] = useState(null);
   const [showModelNotes, setShowModelNotes] = useState(false);
+  // Locally prepared Amazon asset: { white, framed }. Null when the source
+  // photo is an outdoor shot the transform refuses to fake a cut-out for.
+  const [preparedAsset, setPreparedAsset] = useState(null);
   const fileInputRef = useRef(null);
+
+  useEffect(() => {
+    let cancelled = false;
+    setPreparedAsset(null);
+    prepareWhiteBackgroundAsset(selectedProduct.images.amazonMain)
+      .then(asset => { if (!cancelled) setPreparedAsset(asset); })
+      .catch(() => { if (!cancelled) setPreparedAsset(null); });
+    return () => { cancelled = true; };
+  }, [selectedProduct.id, selectedProduct.images.amazonMain]);
 
   const handleFileUpload = async (e) => {
     const file = e.target.files?.[0];
@@ -104,10 +117,14 @@ export default function GeminiPhotoStudio({ sampleProducts, t, onNavigateToCatal
     }
   };
 
-  const currentEnhancedImage = selectedProduct.images[activeAssetTab] || selectedProduct.images.amazonMain;
+  const amazonMainImage = preparedAsset?.white || selectedProduct.images.amazonMain;
+  const beforeCompareImage = preparedAsset?.framed || selectedProduct.images.raw;
+  const currentEnhancedImage = activeAssetTab === 'amazonMain'
+    ? amazonMainImage
+    : (selectedProduct.images[activeAssetTab] || amazonMainImage);
 
   const assets = [
-    { id: 'amazonMain', name: 'Amazon main', note: 'Pure white background', img: selectedProduct.images.amazonMain },
+    { id: 'amazonMain', name: 'Amazon main', note: 'Pure white background', img: amazonMainImage },
     { id: 'myntraLifestyle', name: 'Myntra lifestyle', note: 'On-model drape', img: selectedProduct.images.myntraLifestyle },
     { id: 'fabricDetail', name: 'Weave detail', note: 'Zari close-up', img: selectedProduct.images.fabricDetail },
     { id: 'dimensionGraphic', name: 'Measurements', note: 'Length and blouse', img: selectedProduct.images.dimensionGraphic }
@@ -171,13 +188,13 @@ export default function GeminiPhotoStudio({ sampleProducts, t, onNavigateToCatal
         <figure style={{ margin: 0 }}>
           <div className="compare">
             <img src={currentEnhancedImage} alt={`Enhanced ${activeAssetTab} view`} />
-            <div className="compare-before" style={{ width: `${splitPos}%` }}>
+            <div className="compare-before" style={{ clipPath: `inset(0 ${100 - splitPos}% 0 0)` }}>
               <img
-                src={uploadedImagePreview || selectedProduct.images.raw}
+                src={activeAssetTab === 'amazonMain' ? amazonMainImage : (uploadedImagePreview || beforeCompareImage)}
                 alt="Original shop photo"
-                style={{ height: '100%', objectFit: 'cover', maxWidth: 'none', width: 460 }}
               />
             </div>
+            <span className="compare-handle" style={{ left: `${splitPos}%` }} aria-hidden="true" />
             <span className="compare-tag compare-tag-left">Your photo</span>
             <span className="compare-tag compare-tag-right">Studio version</span>
             <input

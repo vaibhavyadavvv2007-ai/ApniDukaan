@@ -5,10 +5,18 @@
 
 const BASE_URL = '/api';
 
+// Surface real HTTP failures instead of silently resolving with an error
+// body, so callers can tell 'backend said no' from 'backend answered'.
+async function readResponse(res) {
+  const data = await res.json();
+  if (!res.ok) throw new Error(data.error || `Request failed (${res.status})`);
+  return data;
+}
+
 export async function fetchHealth() {
   try {
     const res = await fetch(`${BASE_URL}/health`);
-    return await res.json();
+    return await readResponse(res);
   } catch (err) {
     console.warn('API fetchHealth error:', err);
     return null;
@@ -17,7 +25,7 @@ export async function fetchHealth() {
 
 export async function fetchShopProfile() {
   const res = await fetch(`${BASE_URL}/shop`);
-  return await res.json();
+  return await readResponse(res);
 }
 
 export async function updateShopXp(xpToAdd) {
@@ -26,12 +34,12 @@ export async function updateShopXp(xpToAdd) {
     headers: { 'Content-Type': 'application/json' },
     body: JSON.stringify({ xpToAdd })
   });
-  return await res.json();
+  return await readResponse(res);
 }
 
 export async function fetchProducts() {
   const res = await fetch(`${BASE_URL}/products`);
-  return await res.json();
+  return await readResponse(res);
 }
 
 export async function createProduct(productData) {
@@ -40,12 +48,12 @@ export async function createProduct(productData) {
     headers: { 'Content-Type': 'application/json' },
     body: JSON.stringify(productData)
   });
-  return await res.json();
+  return await readResponse(res);
 }
 
 export async function fetchReadinessRules() {
   const res = await fetch(`${BASE_URL}/readiness`);
-  return await res.json();
+  return await readResponse(res);
 }
 
 export async function toggleReadinessTask(platform, taskId, completed) {
@@ -54,12 +62,12 @@ export async function toggleReadinessTask(platform, taskId, completed) {
     headers: { 'Content-Type': 'application/json' },
     body: JSON.stringify({ platform, taskId, completed })
   });
-  return await res.json();
+  return await readResponse(res);
 }
 
 export async function fetchScrapedSpecs(platform, category) {
   const res = await fetch(`${BASE_URL}/readiness/scrape?platform=${platform}&category=${category}`);
-  return await res.json();
+  return await readResponse(res);
 }
 
 export async function enhanceImageWithGemini(imageBase64, productContext) {
@@ -68,7 +76,7 @@ export async function enhanceImageWithGemini(imageBase64, productContext) {
     headers: { 'Content-Type': 'application/json' },
     body: JSON.stringify({ imageBase64, productContext })
   });
-  return await res.json();
+  return await readResponse(res);
 }
 
 export async function uploadAndEnhanceImage(formData) {
@@ -76,7 +84,7 @@ export async function uploadAndEnhanceImage(formData) {
     method: 'POST',
     body: formData
   });
-  return await res.json();
+  return await readResponse(res);
 }
 
 export async function generateImageWithGemini({ imageBase64, prompt, transformationType, productContext }) {
@@ -85,7 +93,7 @@ export async function generateImageWithGemini({ imageBase64, prompt, transformat
     headers: { 'Content-Type': 'application/json' },
     body: JSON.stringify({ imageBase64, prompt, transformationType, productContext })
   });
-  return await res.json();
+  return await readResponse(res);
 }
 
 export async function extractProductAttributesWithGemini({ imageBase64, productContext }) {
@@ -94,12 +102,12 @@ export async function extractProductAttributesWithGemini({ imageBase64, productC
     headers: { 'Content-Type': 'application/json' },
     body: JSON.stringify({ imageBase64, productContext })
   });
-  return await res.json();
+  return await readResponse(res);
 }
 
 export async function fetchCustomers() {
   const res = await fetch(`${BASE_URL}/crm/customers`);
-  return await res.json();
+  return await readResponse(res);
 }
 
 export async function dispatchCampaign(campaignData) {
@@ -108,18 +116,18 @@ export async function dispatchCampaign(campaignData) {
     headers: { 'Content-Type': 'application/json' },
     body: JSON.stringify(campaignData)
   });
-  return await res.json();
+  return await readResponse(res);
 }
 
 export async function fetchN8NWorkflow() {
   const res = await fetch(`${BASE_URL}/crm/n8n-workflow`);
-  return await res.json();
+  return await readResponse(res);
 }
 
 export async function fetchWhatsAppTemplateStatus() {
   try {
     const res = await fetch(`${BASE_URL}/crm/template-status`);
-    return await res.json();
+    return await readResponse(res);
   } catch (err) {
     console.warn('Could not fetch template status:', err);
     return null;
@@ -132,7 +140,7 @@ export async function translateWithSarvam(text, targetLanguage) {
     headers: { 'Content-Type': 'application/json' },
     body: JSON.stringify({ text, targetLanguage })
   });
-  return await res.json();
+  return await readResponse(res);
 }
 
 export async function createPaytmPaymentLink(linkData) {
@@ -141,12 +149,12 @@ export async function createPaytmPaymentLink(linkData) {
     headers: { 'Content-Type': 'application/json' },
     body: JSON.stringify(linkData)
   });
-  return await res.json();
+  return await readResponse(res);
 }
 
 export async function fetchQuests() {
   const res = await fetch(`${BASE_URL}/quests`);
-  return await res.json();
+  return await readResponse(res);
 }
 
 export async function completeQuest(questId) {
@@ -155,22 +163,22 @@ export async function completeQuest(questId) {
     headers: { 'Content-Type': 'application/json' },
     body: JSON.stringify({ questId })
   });
-  return await res.json();
+  return await readResponse(res);
 }
 
 export async function verifyAmazonSandbox() {
   const res = await fetch(`${BASE_URL}/amazon/verify-sandbox`);
-  return await res.json();
+  return await readResponse(res);
 }
 
 export async function fetchAmazonProductTypes(keywords = 'SAREE') {
   const res = await fetch(`${BASE_URL}/amazon/product-types?keywords=${encodeURIComponent(keywords)}`);
-  return await res.json();
+  return await readResponse(res);
 }
 
 export async function fetchAmazonProductTypeDefinition(productType = 'SAREE') {
   const res = await fetch(`${BASE_URL}/amazon/product-type-definition?productType=${encodeURIComponent(productType)}`);
-  return await res.json();
+  return await readResponse(res);
 }
 
 export async function submitAmazonListing(masterProduct, sellerId = 'SANDBOX_SELLER_ID', sku = null) {
@@ -179,7 +187,7 @@ export async function submitAmazonListing(masterProduct, sellerId = 'SANDBOX_SEL
     headers: { 'Content-Type': 'application/json' },
     body: JSON.stringify({ masterProduct, sellerId, sku })
   });
-  return await res.json();
+  return await readResponse(res);
 }
 
 export async function exportAmazonListing(masterProduct) {
@@ -188,5 +196,5 @@ export async function exportAmazonListing(masterProduct) {
     headers: { 'Content-Type': 'application/json' },
     body: JSON.stringify({ masterProduct })
   });
-  return await res.json();
+  return await readResponse(res);
 }

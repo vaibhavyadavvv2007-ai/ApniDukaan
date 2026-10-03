@@ -1,16 +1,16 @@
 import React, { useState, useEffect } from 'react';
-import { 
-  Store, 
-  Package, 
-  Sparkles, 
-  Globe, 
-  MessageSquare, 
-  Calculator, 
-  CreditCard, 
-  Languages,
+import {
+  Store,
+  Package,
+  Sparkles,
+  MessageSquare,
   Check,
   TrendingUp,
-  CircleDashed
+  Plus,
+  ArrowRight,
+  ArrowUpRight,
+  Menu,
+  ChevronRight
 } from 'lucide-react';
 import confetti from 'canvas-confetti';
 
@@ -22,78 +22,36 @@ import OmnichannelCatalog from './components/catalog/OmnichannelCatalog';
 import WhatsAppCRMHub from './components/crm/WhatsAppCRMHub';
 import WhatIfSimulator from './components/simulator/WhatIfSimulator';
 import PaytmPaymentHub from './components/paytm/PaytmPaymentHub';
+import { ProductStudio } from './components/ProductWorkspace';
+import WorkspaceSidebar from './components/layout/WorkspaceSidebar';
+import JourneyRail from './components/layout/JourneyRail';
 
 import * as api from './services/api';
 
-import { 
-  shopProfile as fallbackProfile, 
-  platformReadinessRules as fallbackRules, 
-  sampleProducts as fallbackProducts, 
-  crmCustomers as fallbackCustomers, 
-  activeQuests as fallbackQuests, 
-  languageTranslations 
+import {
+  shopProfile as fallbackProfile,
+  platformReadinessRules as fallbackRules,
+  sampleProducts as fallbackProducts,
+  crmCustomers as fallbackCustomers,
+  activeQuests as fallbackQuests,
+  languageTranslations
 } from './data/mockData';
 
+import {
+  NAV,
+  screenSubtitle,
+  navLabel,
+  JOURNEY,
+  DRAFT_STAGES,
+  INTEGRATION_ORDER,
+  INTEGRATION_LABELS,
+  FALLBACK_INTEGRATIONS,
+  isStepDone
+} from './data/workspace';
+
+import { DRAFT_KEY, newDraft, checks, patchDraft, money } from './services/draft';
+
 const CONFETTI_COLORS = ['#E8A33D', '#F2C179', '#7BB88F', '#F7F2EA'];
-
-const JOURNEY = [
-  {
-    id: 'studio', label: 'Photograph', building: 'studio',
-    detail: 'Gemini reads your fabric and writes the listing',
-    gain: 'Listing copy and four marketplace photos ready'
-  },
-  {
-    id: 'catalog', label: 'List once', building: 'shop',
-    detail: 'One product record, every marketplace',
-    gain: 'Live on Amazon, Flipkart, Meesho, Myntra and Nykaa'
-  },
-  {
-    id: 'crm', label: 'Reach customers', building: 'tower',
-    detail: 'WhatsApp offers in each customer language',
-    gain: 'Existing customers buying again on WhatsApp'
-  },
-  {
-    id: 'simulator', label: 'Simulate', building: 'observatory',
-    detail: 'See the profit before you spend the money',
-    gain: 'A tested plan with the risk already priced in'
-  },
-  {
-    id: 'town', label: 'Grow', building: null,
-    detail: 'Earn XP and upgrade your shop',
-    gain: 'Level 3, Digital Vyapari'
-  }
-];
-
-/* Order here is the order the merchant meets the stack, not an importance
-   ranking. The state text is always read from /api/health so the panel can
-   never drift from the truth. */
-const INTEGRATION_ORDER = ['gemini', 'sarvam', 'n8n', 'whatsapp', 'amazon', 'flipkart', 'meesho', 'myntra', 'nykaa', 'photoStudio', 'paytm'];
-
-const INTEGRATION_LABELS = {
-  gemini: 'Gemini', sarvam: 'Sarvam', n8n: 'n8n', whatsapp: 'WhatsApp',
-  amazon: 'Amazon', flipkart: 'Flipkart', meesho: 'Meesho', myntra: 'Myntra',
-  nykaa: 'Nykaa', photoStudio: 'Photo studio', paytm: 'Paytm'
-};
-
-/* The API returns quests without a building reference, so the link between a
-   quest and the building it belongs to lives here, on the frontend. */
-const QUEST_BUILDING = {
-  'quest-01': 'warehouse',
-  'quest-02': 'studio',
-  'quest-03': 'tower',
-  'quest-04': 'observatory'
-};
-
-/* Shown only until the first health response lands, so the panel is never
-   empty. These mirror the classifications the backend actually returns. */
-const FALLBACK_INTEGRATIONS = [
-  { name: 'Gemini', state: 'LIVE' },
-  { name: 'Sarvam', state: 'LIVE' },
-  { name: 'n8n', state: 'LIVE' },
-  { name: 'WhatsApp', state: 'STAGED' },
-  { name: 'Amazon', state: 'SANDBOX' },
-  { name: 'Paytm', state: 'FALLBACK' }
-];
 
 export default function App() {
   const [activeTab, setActiveTab] = useState('town');
@@ -108,8 +66,31 @@ export default function App() {
   const [backendOnline, setBackendOnline] = useState(false);
   const [navOpen, setNavOpen] = useState(false);
   const [health, setHealth] = useState(null);
+  const [notice, setNotice] = useState('');
+  const [storageError, setStorageError] = useState(false);
+  const [draft, setDraft] = useState(() => {
+    try {
+      const stored = JSON.parse(localStorage.getItem(DRAFT_KEY));
+      if (stored && ['title', 'brand', 'material', 'size', 'description', 'original'].every(k => typeof stored[k] === 'string')) {
+        return { ...newDraft(), ...stored };
+      }
+    } catch {
+      // Start with an empty draft if storage is unavailable.
+    }
+    return newDraft();
+  });
 
   const t = languageTranslations[currentLang] || languageTranslations.en;
+
+  useEffect(() => {
+    try {
+      localStorage.setItem(DRAFT_KEY, JSON.stringify(draft));
+      // Storage failures must be reflected in the UI after this external write.
+      setStorageError(false);
+    } catch {
+      setStorageError(true);
+    }
+  }, [draft]);
 
   useEffect(() => {
     async function initData() {
@@ -129,9 +110,12 @@ export default function App() {
             api.fetchProducts()
           ]);
           if (dbShop) {
+            // Progression (xp/level) is locally owned - see addXp below. The
+            // health check can resolve seconds after first paint, and the
+            // server copy has drifted (it can hold XP past the level cap),
+            // so syncing it here silently rewrote the sidebar mid-session.
+            // Shop details still sync; only the counters stay local.
             setProfile(dbShop);
-            setXp(dbShop.currentXp);
-            setLevel(dbShop.level);
           }
           if (dbRules) setRules(dbRules);
           if (dbQuests) setQuests(dbQuests);
@@ -149,18 +133,11 @@ export default function App() {
   const amzCompleted = amzItems.filter(i => i.completed).length;
   const amzProgress = amzItems.length > 0 ? Math.round((amzCompleted / amzItems.length) * 100) : 0;
 
-  const completedQuests = quests.filter(q => q.completed).length;
-
   const addXp = (amount) => {
     const newXp = xp + amount;
     if (newXp >= 600 && level < 3) {
       setLevel(3);
-      confetti({
-        particleCount: 100,
-        spread: 100,
-        origin: { y: 0.6 },
-        colors: CONFETTI_COLORS
-      });
+      confetti({ particleCount: 100, spread: 100, origin: { y: 0.6 }, colors: CONFETTI_COLORS });
     }
     setXp(newXp);
     api.updateShopXp(amount).catch(() => {});
@@ -186,30 +163,29 @@ export default function App() {
     addXp(xpReward);
   };
 
-  const NAV = [
-    { id: 'town', label: t.navDashboard, icon: Store },
-    { id: 'readiness', label: t.navReadiness, icon: Package },
-    { id: 'studio', label: t.navStudio, icon: Sparkles },
-    { id: 'catalog', label: t.navCatalog, icon: Globe },
-    { id: 'crm', label: t.navCRM, icon: MessageSquare },
-    { id: 'simulator', label: t.navSimulator, icon: Calculator },
-    { id: 'paytm', label: 'Paytm FinTech', icon: CreditCard }
-  ];
-
-  // Readiness and Paytm are support screens, not journey steps, so no step is
-  // highlighted as "current" while the merchant is in them.
-  const journeyIndex = JOURNEY.findIndex(s => s.id === activeTab);
-  const currentNav = NAV.find(n => n.id === activeTab);
-
-  // A step is only "done" when its quest is genuinely completed. Visiting a
-  // screen is not progress, so the stepper never overstates the merchant.
-  const stepDone = (step) => {
-    if (!step.building) return level === 3;
-    // The catalog step has no quest of its own, so it tracks the real
-    // Amazon readiness signal instead of a page visit.
-    if (step.building === 'shop') return amzProgress === 100;
-    return quests.some(q => q.completed && QUEST_BUILDING[q.id] === step.building);
+  const go = (id) => {
+    setActiveTab(id);
+    setNavOpen(false);
+    setNotice('');
+    window.scrollTo({ top: 0, behavior: 'smooth' });
   };
+
+  const begin = () => {
+    if (!draft.original && !draft.title) setDraft(newDraft());
+    go('studio');
+  };
+
+  const draftReady = checks(draft).every(c => c.valid);
+  const draftSteps = [!!draft.original, draft.reviewed && draftReady, draft.exported, draft.campaignPrepared];
+  const draftDone = draftSteps.filter(Boolean).length;
+  const nextStageIndex = draftSteps.findIndex(x => !x);
+  const nextStage = DRAFT_STAGES[nextStageIndex] || DRAFT_STAGES[3];
+  const optedIn = customers.filter(c => c.marketingOptIn === true).length;
+
+  const currentNav = NAV.find(n => n.id === activeTab);
+  const currentNavLabel = currentNav ? navLabel(currentNav, t) : '';
+
+  const stepDone = (step) => isStepDone(step, { level, quests, amzProgress });
   const doneCount = JOURNEY.filter(stepDone).length;
   const nextStep = JOURNEY.find(s => !stepDone(s)) || null;
   const nextQuest = quests.find(q => !q.completed) || null;
@@ -217,312 +193,288 @@ export default function App() {
   // Real classifications from the backend, in merchant-facing order.
   const integrations = health?.services
     ? INTEGRATION_ORDER
-        .filter(key => health.services[key])
-        .map(key => ({
-          name: INTEGRATION_LABELS[key] || key,
-          state: health.services[key].classification || 'UNKNOWN'
-        }))
+      .filter(key => health.services[key])
+      .map(key => ({ name: INTEGRATION_LABELS[key] || key, state: health.services[key].classification || 'UNKNOWN' }))
     : FALLBACK_INTEGRATIONS;
 
   const healthCounts = health?.integrationSummary || null;
-
-  const go = (id) => {
-    setActiveTab(id);
-    setNavOpen(false);
-    window.scrollTo({ top: 0, behavior: 'smooth' });
-  };
+  const levelTitle = level === 3 ? 'Digital Vyapari' : 'Mohalla Merchant';
 
   return (
     <div className="app-shell">
-      {/* ---------------- Sidebar ---------------- */}
-      <aside className={`sidebar${navOpen ? ' sidebar-open' : ''}`}>
-        <div className="sidebar-brand">
-          <div className="brand-mark" aria-hidden="true">DQ</div>
-          <div className="brand-text">
-            <span className="brand-name">DukaanQuest</span>
-            <span className="brand-sub">{profile.location}</span>
-          </div>
-        </div>
-
-        <nav className="sidebar-nav" aria-label="Primary">
-          {NAV.map(item => {
-            const Icon = item.icon;
-            const active = activeTab === item.id;
-            return (
-              <button
-                key={item.id}
-                onClick={() => go(item.id)}
-                className={`nav-item${active ? ' nav-item-active' : ''}`}
-                aria-current={active ? 'page' : undefined}
-              >
-                <Icon size={16} />
-                <span>{item.label}</span>
-              </button>
-            );
-          })}
-        </nav>
-
-        <div className="sidebar-foot">
-          <div className="level-block">
-            <div className="level-row">
-              <span className="level-name">
-                {level === 3 ? 'Digital Vyapari' : 'Mohalla Merchant'}
-              </span>
-              <span className="level-xp mono">{xp}/600</span>
-            </div>
-            <div
-              className="track level-track"
-              role="progressbar"
-              aria-valuenow={Math.min(xp, 600)}
-              aria-valuemin={0}
-              aria-valuemax={600}
-              aria-label="Experience toward the next level"
-            >
-              <div className="track-fill" style={{ transform: `scaleX(${Math.min(1, xp / 600)})` }} />
-            </div>
-            <p className="meta level-sub">
-              {level === 3
-                ? 'Top level reached'
-                : `${600 - xp} XP to Digital Vyapari`}
-            </p>
-            {nextQuest && (
-              <div className="level-next">
-                <span className="level-next-label">Next milestone</span>
-                <span className="level-next-title">{nextQuest.title}</span>
-                <span className="level-next-xp mono">+{nextQuest.xp} XP</span>
-              </div>
-            )}
-          </div>
-
-          <div className="lang-field">
-            <Languages size={15} />
-            <select
-              value={currentLang}
-              onChange={(e) => setCurrentLang(e.target.value)}
-              aria-label="Interface language"
-            >
-              <option value="en">English</option>
-              <option value="hi">हिंदी</option>
-              <option value="kn">ಕನ್ನಡ</option>
-              <option value="ta">தமிழ்</option>
-            </select>
-          </div>
-
-          <details className="integrations">
-            <summary>
-              <span className={`conn-dot${backendOnline ? ' conn-live' : ''}`} />
-              {backendOnline ? 'Systems connected' : 'Local data'}
-            </summary>
-            {healthCounts && (
-              <p className="meta integration-counts">
-                {healthCounts.LIVE} live, {healthCounts.SANDBOX} sandbox,{' '}
-                {healthCounts.STAGED} staged, {healthCounts.FALLBACK} fallback
-              </p>
-            )}
-            <ul>
-              {integrations.map(i => (
-                <li key={i.name}>
-                  <span>{i.name}</span>
-                  <span className={`mono meta conn-state conn-state-${i.state.toLowerCase()}`}>
-                    {i.state}
-                  </span>
-                </li>
-              ))}
-            </ul>
-          </details>
-        </div>
-      </aside>
+      <WorkspaceSidebar
+        navOpen={navOpen}
+        activeTab={activeTab}
+        onNavigate={go}
+        onClose={() => setNavOpen(false)}
+        profile={profile}
+        level={level}
+        xp={xp}
+        nextQuest={nextQuest}
+        currentLang={currentLang}
+        onLanguageChange={setCurrentLang}
+        backendOnline={backendOnline}
+        healthCounts={healthCounts}
+        integrations={integrations}
+        t={t}
+      />
 
       {navOpen && <div className="scrim" onClick={() => setNavOpen(false)} />}
 
-      {/* ---------------- Main ---------------- */}
       <div className="app-main">
         <header className="page-head">
           <button className="nav-toggle" onClick={() => setNavOpen(true)} aria-label="Open navigation">
-            <span /><span /><span />
+            <Menu size={21} />
           </button>
-          <div className="page-head-text">
-            <h1>{currentNav?.label}</h1>
-            <p className="meta">{profile.shopName}</p>
+          <div className="breadcrumbs">
+            Workspace <ChevronRight size={13} /> <strong>{currentNavLabel}</strong>
+          </div>
+          <div className="head-actions">
+            <span className="pill pill-quiet">Prototype workspace</span>
+            <span className="avatar" aria-hidden="true">R</span>
           </div>
         </header>
 
         <main className="page-body">
-          {/* ---- Golden Journey: a path with real progress, not a row of pills ---- */}
-          <section className="journey" aria-label="Golden journey">
-            <div className="journey-head">
-              <div className="journey-head-text">
-                <h2 className="journey-title">From photo to profit</h2>
-                <p className="meta">
-                  {doneCount === JOURNEY.length
-                    ? 'Every engine is running. Keep the town growing.'
-                    : `${nextStep
-                      ? `Next up: ${nextStep.label.toLowerCase()}`
-                      : 'All five engines are running'}`}
-                </p>
+          {storageError && (
+            <p role="alert" className="notice">
+              Browser storage is full or unavailable. This draft is only saved for this session; export it before closing.
+            </p>
+          )}
+          {notice && <p role="status" className="notice">{notice}</p>}
+
+          {activeTab === 'town' ? (
+            <>
+              <div className="overview-heading">
+                <div>
+                  <p className="eyebrow">A LITTLE PROGRESS, EVERY DAY</p>
+                  <h1>Your shop. <span>New possibilities.</span></h1>
+                  <p className="subtitle">
+                    {doneCount === JOURNEY.length
+                      ? 'Every engine is running. Keep the town growing.'
+                      : `${nextStep ? `Next up: ${nextStep.label.toLowerCase()}` : 'All five engines are running'}`}
+                  </p>
+                </div>
+                <button className="btn btn-primary" onClick={begin}>
+                  <Plus size={17} />{draft.original ? 'Continue product' : 'Add your first product'}
+                </button>
               </div>
-              <div className="journey-score">
-                <span className="journey-score-value">{doneCount}<span className="journey-score-of">/{JOURNEY.length}</span></span>
-                <span className="journey-score-label">steps done</span>
-              </div>
-            </div>
 
-            <div className="journey-rail" aria-hidden="true">
-              <div
-                className="journey-rail-fill"
-                style={{ transform: `scaleX(${doneCount / JOURNEY.length})` }}
-              />
-            </div>
-
-            <ol className="journey-track">
-              {JOURNEY.map((step, i) => {
-                const done = stepDone(step);
-                const current = i === journeyIndex;
-                return (
-                  <li key={step.id} className="journey-step">
-                    <button
-                      onClick={() => go(step.id)}
-                      className={`journey-node${current ? ' is-current' : ''}${done ? ' is-done' : ''}`}
-                      aria-current={current ? 'step' : undefined}
-                    >
-                      <span className="journey-mark">
-                        {done ? <Check size={13} strokeWidth={2.5} /> : <span className="mono">{i + 1}</span>}
-                      </span>
-                      <span className="journey-text">
-                        <span className="journey-label">{step.label}</span>
-                        <span className="journey-detail">{done ? step.gain : step.detail}</span>
-                      </span>
-                    </button>
-                  </li>
-                );
-              })}
-            </ol>
-          </section>
-
-          {/* ---- Tab 1: Town ---- */}
-          {activeTab === 'town' && (
-            <div className="stack">
-              <div className="metric-block">
-                <div className="surface metric-primary">
-                  <div className="metric-primary-text">
-                    <span className="eyebrow">Monthly revenue at the shop counter</span>
-                    <span className="metric-lg">₹{profile.monthlyOfflineRevenue.toLocaleString()}</span>
-                    <span className="metric-note">
-                      <TrendingUp size={13} /> Walk-in sales in {profile.location.split(',')[0]}
-                    </span>
-                  </div>
-                  <div className="metric-primary-side">
-                    <p className="eyebrow">What is working</p>
-                    <p className="metric-primary-hint">
-                      Three engines are live and earning. Finish the Amazon
-                      packaging checklist to unlock the marketplace listing.
-                    </p>
-                    <button className="btn btn-sm btn-secondary" onClick={() => go('readiness')}>
-                      Open checklist
-                    </button>
+              <section className="hero-panel">
+                <div className="hero-copy">
+                  <span className="pill pill-accent"><Sparkles size={13} /> FROM SHELF TO SCREEN</span>
+                  <h2>A great product deserves<br />a bigger audience.</h2>
+                  <p>
+                    ₹{profile.monthlyOfflineRevenue.toLocaleString()} at the counter each month.
+                    {nextQuest ? ` Next: ${nextQuest.title.toLowerCase()}.` : ' Every engine is running.'}
+                    <br />You review every detail before it leaves your shop.
+                  </p>
+                  <button className="btn btn-primary" onClick={() => go(nextStep ? nextStep.id : 'studio')}>
+                    {nextStep ? nextStep.label : 'Prepare a product'}<ArrowRight size={17} />
+                  </button>
+                  <div className="hero-foot">
+                    <span className="tiny-dot" />
+                    <TrendingUp size={12} />{amzCompleted} of {amzItems.length} Amazon packaging checks done
                   </div>
                 </div>
-
-                <div className="metric-stack">
-                  <div className="surface metric-small">
-                    <span className="eyebrow">Ready to sell on Amazon</span>
-                    <span className="metric-sm">{amzCompleted} of {amzItems.length}</span>
-                    <div
-                      className="track metric-track"
-                      role="progressbar"
-                      aria-valuenow={amzProgress}
-                      aria-valuemin={0}
-                      aria-valuemax={100}
-                      aria-label="Amazon packaging checklist progress"
-                    >
-                      <div className="track-fill" style={{ transform: `scaleX(${amzProgress / 100})` }} />
+                <div className="hero-art" aria-hidden="true">
+                  <div className="art-stamp">THE DIGITAL DUKAAN</div>
+                  <div className="store-illustration">
+                    <div className="shop-roof">SHREE GANESH</div>
+                    <div className="shop-awning">{Array.from({ length: 8 }, (_, i) => <i key={i} />)}</div>
+                    <div className="shop-face">
+                      <div className="shop-window">
+                        <span>✦</span>
+                        <div className="cloth c1" /><div className="cloth c2" /><div className="cloth c3" />
+                      </div>
+                      <div className="shop-door"><span>OPEN</span></div>
                     </div>
-                    <span className="meta">of what Amazon asks for, done</span>
+                    <div className="shop-base" />
                   </div>
-                  <div className="surface metric-small">
-                    <span className="eyebrow">Customers you can message</span>
-                    <span className="metric-sm">{customers.length}</span>
-                    <span className="meta">opted in, reachable on WhatsApp in their own language</span>
-                  </div>
-                  <div className="surface metric-small">
-                    <span className="eyebrow">Photos ready to list</span>
-                    <span className="metric-sm">12</span>
-                    <span className="meta">one product, shot for Amazon, Myntra and Flipkart</span>
-                  </div>
+                  <div className="floating-label label-one"><Check size={15} /> Listing prepared</div>
+                  <div className="floating-label label-two"><MessageSquare size={15} /> A personal touch</div>
+                  <span className="art-caption">LOCAL ROOTS. WIDER REACH.</span>
+                </div>
+              </section>
+
+              <div className="overview-stats">
+                <div className="stat-card">
+                  <span className="stat-icon"><Sparkles size={19} /></span>
+                  <span className="stat-value">{xp}</span>
+                  <h3>Experience points</h3>
+                  <p>{levelTitle} · {level === 3 ? 'top level reached' : `${600 - xp} XP to Digital Vyapari`}</p>
+                </div>
+                <div className="stat-card">
+                  <span className="stat-icon"><Package size={19} /></span>
+                  <span className="stat-value">{amzCompleted}/{amzItems.length}</span>
+                  <h3>Amazon packaging ready</h3>
+                  <p>From the reference checklist, not a guess</p>
+                </div>
+                <div className="stat-card">
+                  <span className="stat-icon"><MessageSquare size={19} /></span>
+                  <span className="stat-value">{optedIn}</span>
+                  <h3>Customers with recorded opt-in</h3>
+                  <p>Reachable on WhatsApp in their own language</p>
                 </div>
               </div>
 
-              <DigitalDukaanCanvas 
-                level={level}
-                xp={xp}
-                readinessProgress={amzProgress}
-                studioUnlocked={true}
-                crmConnected={true}
-                onSelectBuilding={(engine) => go(engine)}
+              <div className="dashboard-bottom">
+                <section className="surface draft-summary">
+                  <div className="section-head">
+                    <h2>Pick up where you left off</h2>
+                    <span className="pill pill-accent">{draftDone}/4 steps</span>
+                  </div>
+                  <div className="draft-row">
+                    {draft.original ? (
+                      <img src={draft.original} alt={draft.title || 'Your product'} />
+                    ) : (
+                      <div className="draft-empty"><Package size={32} /></div>
+                    )}
+                    <div>
+                      <p className="eyebrow">{draft.sample ? 'SAMPLE PRODUCT' : 'YOUR PRODUCT DRAFT'}</p>
+                      <h3>{draft.title || 'Your next bestseller starts here'}</h3>
+                      <p className="meta">
+                        {draft.title ? `${money(draft.price)} · ${draft.stock || 0} in stock` : 'Add a photo and a few details. We’ll help with the rest.'}
+                      </p>
+                    </div>
+                  </div>
+                  <div className="mini-track"><div style={{ width: `${(draftDone / 4) * 100}%` }} /></div>
+                  <button className="btn btn-secondary" onClick={() => go(nextStage.id)}>
+                    {nextStage.label}<ArrowRight size={15} />
+                  </button>
+                </section>
+
+                <section className="surface next-actions">
+                  <p className="eyebrow">MAKE YOUR NEXT MOVE</p>
+                  <h2>Small steps. Real outputs.</h2>
+                  {[
+                    ['gemini', '01', 'Photograph a product', 'Gemini reads the fabric and writes the listing'],
+                    ['crm', '02', 'Start a conversation', 'Preview an offer for your customers'],
+                    ['simulator', '03', 'Explore the numbers', 'Compare scenarios before spending']
+                  ].map(([id, n, title, desc]) => (
+                    <button key={id} onClick={() => go(id)}>
+                      <span>{n}</span>
+                      <div><strong>{title}</strong><p>{desc}</p></div>
+                      <ArrowUpRight size={18} />
+                    </button>
+                  ))}
+                </section>
+              </div>
+
+              <JourneyRail
+                stepDone={stepDone}
+                activeTab={activeTab}
+                onNavigate={go}
+                doneCount={doneCount}
               />
 
-              <QuestLog 
-                quests={quests}
-                level={level}
-                xp={xp}
-                streak={profile.streakDays}
-                onCompleteQuest={handleCompleteQuest}
-              />
-            </div>
+              <div className="stack">
+                <DigitalDukaanCanvas
+                  level={level}
+                  xp={xp}
+                  readinessProgress={amzProgress}
+                  studioUnlocked={true}
+                  crmConnected={true}
+                  onSelectBuilding={(engine) => go(engine)}
+                />
+
+                <QuestLog
+                  quests={quests}
+                  level={level}
+                  xp={xp}
+                  streak={profile.streakDays}
+                  onCompleteQuest={handleCompleteQuest}
+                />
+              </div>
+            </>
+          ) : (
+            <>
+              <div className="workspace-title">
+                <p className="eyebrow">YOUR COMMERCE WORKSPACE</p>
+                <h1>{currentNavLabel}</h1>
+                <p className="subtitle">{screenSubtitle(activeTab, t)}</p>
+              </div>
+
+              {['studio', 'catalog', 'crm'].includes(activeTab) && (
+                <nav className="compact-journey" aria-label="Product journey">
+                  {DRAFT_STAGES.map((stage, i) => (
+                    <button
+                      key={stage.labelKey}
+                      onClick={() => go(stage.id)}
+                      className={draftSteps[i] ? 'complete' : ''}
+                    >
+                      <span>{draftSteps[i] ? <Check size={13} /> : i + 1}</span>
+                      {t[stage.labelKey] || stage.label}
+                    </button>
+                  ))}
+                </nav>
+              )}
+
+              {activeTab === 'studio' && (
+                <ProductStudio
+                  draft={draft}
+                  update={(patch) => setDraft(old => patchDraft(old, patch))}
+                  setDraft={setDraft}
+                  products={products}
+                  onNext={() => go('catalog')}
+                  ready={draftReady}
+                />
+              )}
+
+              {activeTab === 'gemini' && (
+                <GeminiPhotoStudio
+                  sampleProducts={products}
+                  t={t}
+                  onNavigateToCatalog={() => go('catalog')}
+                />
+              )}
+
+              {activeTab === 'catalog' && (
+                <OmnichannelCatalog
+                  sampleProducts={products}
+                  t={t}
+                  onNavigateToCrm={() => go('crm')}
+                />
+              )}
+
+              {activeTab === 'crm' && (
+                <WhatsAppCRMHub
+                  customers={customers}
+                  onDispatchCampaign={() => addXp(40)}
+                  currentLanguage={currentLang}
+                  t={t}
+                  onNavigateToSimulator={() => go('simulator')}
+                />
+              )}
+
+              {activeTab === 'simulator' && (
+                <WhatIfSimulator
+                  onApplyStrategy={() => addXp(50)}
+                  t={t}
+                  onCompleteJourney={() => {
+                    addXp(100);
+                    setQuests(prev => prev.map(q => ({ ...q, completed: true })));
+                    setLevel(3);
+                    setActiveTab('town');
+                    confetti({ particleCount: 150, spread: 120, origin: { y: 0.5 }, colors: CONFETTI_COLORS });
+                  }}
+                />
+              )}
+
+              {activeTab === 'readiness' && (
+                <PhysicalReadinessChecker readinessRules={rules} onToggleTask={handleToggleTask} t={t} />
+              )}
+
+              {activeTab === 'paytm' && (
+                <PaytmPaymentHub shopProfile={profile} t={t} />
+              )}
+            </>
           )}
 
-          {activeTab === 'readiness' && (
-            <PhysicalReadinessChecker readinessRules={rules} onToggleTask={handleToggleTask} t={t} />
-          )}
-
-          {activeTab === 'studio' && (
-            <GeminiPhotoStudio 
-              sampleProducts={products}
-              t={t}
-              onNavigateToCatalog={() => go('catalog')}
-            />
-          )}
-
-          {activeTab === 'catalog' && (
-            <OmnichannelCatalog 
-              sampleProducts={products}
-              t={t}
-              onNavigateToCrm={() => go('crm')}
-            />
-          )}
-
-          {activeTab === 'crm' && (
-            <WhatsAppCRMHub 
-              customers={customers}
-              onDispatchCampaign={(count) => addXp(40)}
-              currentLanguage={currentLang}
-              t={t}
-              onNavigateToSimulator={() => go('simulator')}
-            />
-          )}
-
-          {activeTab === 'simulator' && (
-            <WhatIfSimulator 
-              onApplyStrategy={(strat) => addXp(50)}
-              t={t}
-              onCompleteJourney={() => {
-                addXp(100);
-                setQuests(prev => prev.map(q => ({ ...q, completed: true })));
-                setLevel(3);
-                setActiveTab('town');
-                confetti({
-                  particleCount: 150,
-                  spread: 120,
-                  origin: { y: 0.5 },
-                  colors: CONFETTI_COLORS
-                });
-              }}
-            />
-          )}
-
-          {activeTab === 'paytm' && (
-            <PaytmPaymentHub shopProfile={profile} t={t} />
-          )}
+          <footer className="workspace-footer">
+            <Store size={14} /> Built for the shop around the corner.
+            <span>Prepared ≠ published · Estimates ≠ earnings</span>
+          </footer>
         </main>
       </div>
     </div>
