@@ -1,9 +1,42 @@
 /**
- * DukaanQuest Centralized API Service Client
+ * ApniDukaan Centralized API Service Client
  * Connects Frontend directly to Express Backend & Sponsor Microservices
  */
 
-const BASE_URL = '/api';
+/**
+ * API origin resolution.
+ *
+ * Local dev: VITE_API_BASE_URL is unset, so requests go to the relative path
+ * '/api' and the Vite dev-server proxy (vite.config.js) forwards them to
+ * http://localhost:5000. That keeps the browser same-origin in dev.
+ *
+ * Production: set VITE_API_BASE_URL to the deployed backend origin, e.g.
+ * https://dukaanquest-api.vercel.app. Trailing slashes are stripped so callers
+ * can safely write either form in the Vercel dashboard.
+ *
+ * Never hard-code a backend URL here: this is the single place the origin is
+ * decided. Note that every VITE_* value is inlined into the client bundle and
+ * is therefore PUBLIC — this may only ever hold a public URL, never a secret.
+ */
+function resolveApiBase() {
+  const configured = import.meta.env?.VITE_API_BASE_URL;
+  if (typeof configured === 'string' && configured.trim()) {
+    return `${configured.trim().replace(/\/+$/, '')}/api`;
+  }
+  return '/api';
+}
+
+export const BASE_URL = resolveApiBase();
+
+/** Absolute URL for an API path, for the few callers that cannot use a relative fetch. */
+export function apiUrl(path) {
+  const suffix = String(path).startsWith('/') ? path : `/${path}`;
+  if (BASE_URL.startsWith('/')) return `${BASE_URL}${suffix}`;
+  return `${BASE_URL}${suffix}`;
+}
+
+/** True when the API is on a different origin than the page (production split deploy). */
+export const isCrossOriginApi = !BASE_URL.startsWith('/');
 
 // Surface real HTTP failures instead of silently resolving with an error
 // body, so callers can tell 'backend said no' from 'backend answered'.

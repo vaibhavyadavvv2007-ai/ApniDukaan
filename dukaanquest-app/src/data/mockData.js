@@ -1,4 +1,4 @@
-// Comprehensive, realistic mock dataset for DukaanQuest
+// Comprehensive, realistic mock dataset for ApniDukaan
 // Grounded in "Shree Ganesh Matching & Saree Centre" (Ramesh-ji's real shop)
 
 export const shopProfile = {
@@ -152,7 +152,7 @@ export const platformReadinessRules = {
         title: "Curated Model/Mannequin Photography Verification",
         category: "Creative",
         mandatory: true,
-        spec: "Myntra strictly rejects flat-lay photos. Must be on-model or premium draped mannequin. (Use DukaanQuest Gemini Studio!).",
+        spec: "Myntra strictly rejects flat-lay photos. Must be on-model or premium draped mannequin. (Use ApniDukaan Gemini Studio!).",
         completed: true,
         xpReward: 45
       }
@@ -251,7 +251,7 @@ export const crmCustomers = [
   {
     id: "cust-101",
     name: "Ananya Deshpande",
-    phone: "+91 98450 12345",
+    phone: "+91 84292 46067",
     tags: ["VIP", "Bridal"],
     totalSpend: 24500,
     lastPurchase: "12 days ago",
@@ -261,7 +261,7 @@ export const crmCustomers = [
   {
     id: "cust-102",
     name: "Sunita Sharma",
-    phone: "+91 97112 67890",
+    phone: "+91 84292 46067",
     tags: ["VIP", "Festive"],
     totalSpend: 18200,
     lastPurchase: "18 days ago",
@@ -271,7 +271,7 @@ export const crmCustomers = [
   {
     id: "cust-103",
     name: "Meenakshi Sundaram",
-    phone: "+91 94441 55521",
+    phone: "+91 84292 46067",
     tags: ["Inactive >30d"],
     totalSpend: 7800,
     lastPurchase: "48 days ago",
@@ -281,7 +281,7 @@ export const crmCustomers = [
   {
     id: "cust-104",
     name: "Rajeshwar Rao",
-    phone: "+91 98860 33412",
+    phone: "+91 84292 46067",
     tags: ["Regular"],
     totalSpend: 9400,
     lastPurchase: "25 days ago",
@@ -291,7 +291,7 @@ export const crmCustomers = [
   {
     id: "cust-105",
     name: "Pooja Hegde",
-    phone: "+91 96200 88991",
+    phone: "+91 84292 46067",
     tags: ["Inactive >30d"],
     totalSpend: 5400,
     lastPurchase: "62 days ago",

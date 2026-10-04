@@ -263,8 +263,66 @@ async function getSarvamHealth() {
   return health;
 }
 
+/**
+ * Translate MANY UI strings at once, for runtime localization of the app shell.
+ *
+ * Sarvam's /translate handles one input per call, so this:
+ *  - runs requests concurrently (bounded) instead of sequentially,
+ *  - memoizes results per (language, text) so a language switch only pays once,
+ *  - falls back per-string to the Indic dictionary, so one failure never blanks
+ *    the whole UI -- that string just stays in English.
+ */
+const batchCache = new Map(); // `${lang}::${text}` -> translated string
+const BATCH_CONCURRENCY = 8;
+
+async function translateBatch({ texts = [], targetLanguage = 'hi' }) {
+  const unique = [...new Set(texts.filter(t => typeof t === 'string' && t.trim()))];
+  if (!unique.length) {
+    return { success: true, liveAPI: false, mode: 'empty', language: targetLanguage, translations: {} };
+  }
+
+  if (targetLanguage === 'en') {
+    const translations = {};
+    unique.forEach(t => { translations[t] = t; });
+    return { success: true, liveAPI: false, mode: 'source', language: 'en', translations };
+  }
+
+  const pending = unique.filter(t => !batchCache.has(`${targetLanguage}::${t}`));
+  let liveAPI = false;
+
+  // Bounded-concurrency fan-out.
+  for (let i = 0; i < pending.length; i += BATCH_CONCURRENCY) {
+    const slice = pending.slice(i, i + BATCH_CONCURRENCY);
+    const results = await Promise.all(slice.map(async (text) => {
+      const res = await translateIndicText({ text, targetLanguage });
+      return { text, res };
+    }));
+    for (const { text, res } of results) {
+      if (res?.liveAPI) liveAPI = true;
+      // Only cache real output; keep English on failure so the UI degrades safely.
+      const value = (res?.translatedText || '').trim();
+      batchCache.set(`${targetLanguage}::${text}`, value || text);
+    }
+  }
+
+  const translations = {};
+  unique.forEach(t => { translations[t] = batchCache.get(`${targetLanguage}::${t}`) || t; });
+
+  return {
+    success: true,
+    liveAPI,
+    mode: liveAPI ? 'live-batch' : 'fallback-batch',
+    language: targetLanguage,
+    model: 'mayura:v1',
+    count: translations.length,
+    cachedCount: unique.length - pending.length,
+    translations
+  };
+}
+
 module.exports = {
   translateIndicText,
+  translateBatch,
   transcribeSpeech,
   synthesizeSpeech,
   getSarvamHealth

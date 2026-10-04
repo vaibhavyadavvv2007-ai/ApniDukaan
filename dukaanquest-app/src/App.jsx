@@ -50,12 +50,13 @@ import {
 } from './data/workspace';
 
 import { DRAFT_KEY, newDraft, checks, patchDraft, money } from './services/draft';
+import { TranslationProvider, useTranslation } from './i18n/TranslationProvider';
 
 const CONFETTI_COLORS = ['#E8A33D', '#F2C179', '#7BB88F', '#F7F2EA'];
 
-export default function App() {
+function Workspace() {
+  const { tx, lang: currentLang, setLang: setCurrentLang } = useTranslation();
   const [activeTab, setActiveTab] = useState('town');
-  const [currentLang, setCurrentLang] = useState('en');
   const [profile, setProfile] = useState(fallbackProfile);
   const [xp, setXp] = useState(fallbackProfile.currentXp);
   const [level, setLevel] = useState(fallbackProfile.level);
@@ -238,7 +239,7 @@ export default function App() {
         <main className="page-body">
           {storageError && (
             <p role="alert" className="notice">
-              Browser storage is full or unavailable. This draft is only saved for this session; export it before closing.
+              {tx('Browser storage is full or unavailable. This draft is only saved for this session; export it before closing.')}
             </p>
           )}
           {notice && <p role="status" className="notice">{notice}</p>}
@@ -247,38 +248,38 @@ export default function App() {
             <>
               <div className="overview-heading">
                 <div>
-                  <p className="eyebrow">A LITTLE PROGRESS, EVERY DAY</p>
-                  <h1>Your shop. <span>New possibilities.</span></h1>
+                  <p className="eyebrow">{tx('A LITTLE PROGRESS, EVERY DAY')}</p>
+                  <h1>{tx('Your shop.')} <span>{tx('New possibilities.')}</span></h1>
                   <p className="subtitle">
                     {doneCount === JOURNEY.length
-                      ? 'Every engine is running. Keep the town growing.'
+                      ? tx('Every engine is running. Keep the town growing.')
                       : `${nextStep ? `Next up: ${nextStep.label.toLowerCase()}` : 'All five engines are running'}`}
                   </p>
                 </div>
                 <button className="btn btn-primary" onClick={begin}>
-                  <Plus size={17} />{draft.original ? 'Continue product' : 'Add your first product'}
+                  <Plus size={17} />{draft.original ? tx('Continue product') : tx('Add your first product')}
                 </button>
               </div>
 
               <section className="hero-panel">
                 <div className="hero-copy">
-                  <span className="pill pill-accent"><Sparkles size={13} /> FROM SHELF TO SCREEN</span>
-                  <h2>A great product deserves<br />a bigger audience.</h2>
+                  <span className="pill pill-accent"><Sparkles size={13} /> {tx('FROM SHELF TO SCREEN')}</span>
+                  <h2>{tx('A great product deserves')}<br />{tx('a bigger audience.')}</h2>
                   <p>
                     ₹{profile.monthlyOfflineRevenue.toLocaleString()} at the counter each month.
-                    {nextQuest ? ` Next: ${nextQuest.title.toLowerCase()}.` : ' Every engine is running.'}
-                    <br />You review every detail before it leaves your shop.
+                    {nextQuest ? ` ${tx('Next:')} ${nextQuest.title.toLowerCase()}.` : ` ${tx('Every engine is running.')}`}
+                    <br />{tx('You review every detail before it leaves your shop.')}
                   </p>
                   <button className="btn btn-primary" onClick={() => go(nextStep ? nextStep.id : 'studio')}>
-                    {nextStep ? nextStep.label : 'Prepare a product'}<ArrowRight size={17} />
+                    {nextStep ? nextStep.label : tx('Prepare a product')}<ArrowRight size={17} />
                   </button>
                   <div className="hero-foot">
                     <span className="tiny-dot" />
-                    <TrendingUp size={12} />{amzCompleted} of {amzItems.length} Amazon packaging checks done
+                    <TrendingUp size={12} />{tx('of')} {amzCompleted} {tx('of')} {amzItems.length} {tx('Amazon packaging checks done')}
                   </div>
                 </div>
                 <div className="hero-art" aria-hidden="true">
-                  <div className="art-stamp">THE DIGITAL DUKAAN</div>
+                  <div className="art-stamp">{tx('THE DIGITAL DUKAAN')}</div>
                   <div className="store-illustration">
                     <div className="shop-roof">SHREE GANESH</div>
                     <div className="shop-awning">{Array.from({ length: 8 }, (_, i) => <i key={i} />)}</div>
@@ -291,9 +292,9 @@ export default function App() {
                     </div>
                     <div className="shop-base" />
                   </div>
-                  <div className="floating-label label-one"><Check size={15} /> Listing prepared</div>
-                  <div className="floating-label label-two"><MessageSquare size={15} /> A personal touch</div>
-                  <span className="art-caption">LOCAL ROOTS. WIDER REACH.</span>
+                  <div className="floating-label label-one"><Check size={15} /> {tx('Listing prepared')}</div>
+                  <div className="floating-label label-two"><MessageSquare size={15} /> {tx('A personal touch')}</div>
+                  <span className="art-caption">{tx('LOCAL ROOTS. WIDER REACH.')}</span>
                 </div>
               </section>
 
@@ -478,5 +479,17 @@ export default function App() {
         </main>
       </div>
     </div>
+  );
+}
+
+/**
+ * Root. Mounts the Sarvam-backed translator above every screen; it owns the
+ * selected language so any component can call tx('...') without prop-drilling.
+ */
+export default function App() {
+  return (
+    <TranslationProvider>
+      <Workspace />
+    </TranslationProvider>
   );
 }

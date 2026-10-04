@@ -1,10 +1,12 @@
 import React, { useState } from 'react';
 import { Trophy, ChevronDown } from 'lucide-react';
 import confetti from 'canvas-confetti';
+import { useTranslation } from '../../i18n/TranslationProvider';
 
 const CONFETTI_COLORS = ['#E8A33D', '#F2C179', '#7BB88F'];
 
 export default function WhatIfSimulator({ onApplyStrategy, t, onCompleteJourney }) {
+   const { tx } = useTranslation();
   const [budget, setBudget] = useState(10000);
   const [targetRevenue, setTargetRevenue] = useState(50000);
   const [customerCount, setCustomerCount] = useState(184);
@@ -76,8 +78,8 @@ export default function WhatIfSimulator({ onApplyStrategy, t, onCompleteJourney 
       sales: stratB_GrossSales,
       costs: [
         { label: `WhatsApp messages`, value: -stratB_Cost },
-        { label: 'Marketplace commission', value: 0 },
-        { label: 'Buying the cloth', value: -(stratB_Conversion * 1050) }
+        { label: tx('Marketplace commission'), value: 0 },
+        { label: tx('Buying the cloth'), value: -(stratB_Conversion * 1050) }
       ],
       profit: stratB_NetProfit,
       margin: stratB_Margin,
@@ -96,7 +98,7 @@ export default function WhatIfSimulator({ onApplyStrategy, t, onCompleteJourney 
       riskTone: 'pill-stop',
       sales: stratC_GrossSales,
       costs: [
-        { label: 'Ad spend', value: -stratC_AdCost }
+        { label: tx('Ad spend'), value: -stratC_AdCost }
       ],
       profit: stratC_NetProfit,
       margin: stratC_Margin,
@@ -110,34 +112,34 @@ export default function WhatIfSimulator({ onApplyStrategy, t, onCompleteJourney 
       <section className="surface" style={{ padding: 'var(--s5)', display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(220px, 1fr))', gap: 'var(--s5)' }}>
         <div>
           <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'baseline', marginBottom: 8 }}>
-            <span className="eyebrow">You can spend</span>
+            <span className="eyebrow">{tx('You can spend')}</span>
             <span className="mono" style={{ fontSize: '0.9375rem', fontWeight: 500 }}>{inr(budget)}</span>
           </div>
           <input type="range" min="3000" max="50000" step="1000" value={budget}
             onChange={(e) => setBudget(Number(e.target.value))}
-            aria-label="Available investment budget"
+            aria-label={tx('Available investment budget')}
             style={{ width: '100%', accentColor: 'var(--accent)' }} />
         </div>
 
         <div>
           <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'baseline', marginBottom: 8 }}>
-            <span className="eyebrow">Customers on your list</span>
+            <span className="eyebrow">{tx('Customers on your list')}</span>
             <span className="mono" style={{ fontSize: '0.9375rem', fontWeight: 500 }}>{customerCount}</span>
           </div>
           <input type="range" min="50" max="800" step="10" value={customerCount}
             onChange={(e) => setCustomerCount(Number(e.target.value))}
-            aria-label="Stored offline customers"
+            aria-label={tx('Stored offline customers')}
             style={{ width: '100%', accentColor: 'var(--accent)' }} />
         </div>
 
         <div>
           <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'baseline', marginBottom: 8 }}>
-            <span className="eyebrow">Revenue you want</span>
+            <span className="eyebrow">{tx('Revenue you want')}</span>
             <span className="mono" style={{ fontSize: '0.9375rem', fontWeight: 500 }}>{inr(targetRevenue)}</span>
           </div>
           <input type="range" min="15000" max="150000" step="5000" value={targetRevenue}
             onChange={(e) => setTargetRevenue(Number(e.target.value))}
-            aria-label="Target incremental revenue"
+            aria-label={tx('Target incremental revenue')}
             style={{ width: '100%', accentColor: 'var(--accent)' }} />
         </div>
       </section>
@@ -146,8 +148,8 @@ export default function WhatIfSimulator({ onApplyStrategy, t, onCompleteJourney 
       <section>
         <div className="section-head">
           <div>
-            <h2>What each option would earn you</h2>
-            <p className="meta" style={{ marginTop: 2 }}>Calculated from the numbers above, not estimated by a model</p>
+            <h2>{tx('What each option would earn you')}</h2>
+            <p className="meta" style={{ marginTop: 2 }}>{tx('Calculated from the numbers above, not estimated by a model')}</p>
           </div>
         </div>
 
@@ -158,7 +160,7 @@ export default function WhatIfSimulator({ onApplyStrategy, t, onCompleteJourney 
               className={`surface strategy${s.recommended ? ' strategy-featured' : ''}`}
             >
               {s.recommended && (
-                <span className="strategy-flag">Best for a shop your size</span>
+                <span className="strategy-flag">{tx('Best for a shop your size')}</span>
               )}
 
               <div>
@@ -168,7 +170,7 @@ export default function WhatIfSimulator({ onApplyStrategy, t, onCompleteJourney 
               </div>
 
               <div>
-                <p className="eyebrow">You would keep</p>
+                <p className="eyebrow">{tx('You would keep')}</p>
                 <p className="metric-lg" style={{ fontSize: '2rem', marginTop: 4 }}>{inr(s.profit)}</p>
                 <p className="meta" style={{ marginTop: 2 }}>
                   {s.margin}% margin on {inr(s.sales)} of sales
@@ -185,7 +187,7 @@ export default function WhatIfSimulator({ onApplyStrategy, t, onCompleteJourney 
                   </div>
                 ))}
                 <div style={{ display: 'flex', justifyContent: 'space-between', gap: 12, paddingTop: 6, borderTop: '1px solid var(--line-faint)' }}>
-                  <span className="meta">Money back in</span>
+                  <span className="meta">{tx('Money back in')}</span>
                   <span className="mono">{s.payback}</span>
                 </div>
               </div>
@@ -209,30 +211,28 @@ export default function WhatIfSimulator({ onApplyStrategy, t, onCompleteJourney 
       {/* Where the assumptions come from */}
       <details className="model-notes">
         <summary>
-          <span>Where these numbers come from</span>
+          <span>{tx('Where these numbers come from')}</span>
           <ChevronDown size={14} />
         </summary>
         <div style={{ paddingTop: 12, display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(240px, 1fr))', gap: 'var(--s4)' }}>
           <div>
-            <p className="eyebrow">Marketplace fee</p>
+            <p className="eyebrow">{tx('Marketplace fee')}</p>
             <p className="mono" style={{ marginTop: 3 }}>{marketplaceFeePct}%</p>
-            <p className="meta">Amazon India apparel rate card</p>
+            <p className="meta">{tx('Amazon India apparel rate card')}</p>
           </div>
           <div>
-            <p className="eyebrow">Returns buffer</p>
+            <p className="eyebrow">{tx('Returns buffer')}</p>
             <p className="mono" style={{ marginTop: 3 }}>{returnRiskPct}%</p>
-            <p className="meta">Indian apparel return benchmark</p>
+            <p className="meta">{tx('Indian apparel return benchmark')}</p>
           </div>
           <div>
-            <p className="eyebrow">WhatsApp conversation</p>
+            <p className="eyebrow">{tx('WhatsApp conversation')}</p>
             <p className="mono" style={{ marginTop: 3 }}>₹{whatsAppCostPerChat}</p>
-            <p className="meta">Meta India business rate</p>
+            <p className="meta">{tx('Meta India business rate')}</p>
           </div>
           <div>
-            <p className="eyebrow">How it is calculated</p>
-            <p className="meta" style={{ marginTop: 3, lineHeight: 1.5 }}>
-              Arithmetic in the browser, so you can change any input and watch the profit move. Conversion, order value and returns are demo assumptions for a shop of this size.
-            </p>
+            <p className="eyebrow">{tx('How it is calculated')}</p>
+            <p className="meta" style={{ marginTop: 3, lineHeight: 1.5 }}>{tx('Arithmetic in the browser, so you can change any input and watch the profit move. Conversion, order value and returns are demo assumptions for a shop of this size.')}</p>
           </div>
         </div>
       </details>

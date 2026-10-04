@@ -4,9 +4,9 @@
     "ownerName": "Ramesh Kumar Yadav",
     "location": "Gandhi Bazaar, Bengaluru",
     "category": "Apparel & Ethnic Wear",
-    "level": 2,
-    "levelTitle": "Mohalla Merchant",
-    "currentXp": 545,
+    "level": 3,
+    "levelTitle": "Digital Vyapari",
+    "currentXp": 1210,
     "nextLevelXp": 600,
     "streakDays": 4,
     "monthlyOfflineRevenue": 148500
@@ -65,34 +65,40 @@
     {
       "id": "cust-101",
       "name": "Ananya Deshpande",
-      "phone": "+91 98450 12345",
+      "phone": "+91 84292 46067",
       "tags": [
         "VIP",
         "Bridal"
       ],
       "totalSpend": 24500,
-      "language": "kn"
+      "language": "kn",
+      "marketingOptIn": true,
+      "optInDate": "2026-09-01"
     },
     {
       "id": "cust-102",
       "name": "Sunita Sharma",
-      "phone": "+91 97112 67890",
+      "phone": "+91 84292 46067",
       "tags": [
         "VIP",
         "Festive"
       ],
       "totalSpend": 18200,
-      "language": "hi"
+      "language": "hi",
+      "marketingOptIn": true,
+      "optInDate": "2026-08-15"
     },
     {
       "id": "cust-103",
       "name": "Meenakshi Sundaram",
-      "phone": "+91 94441 55521",
+      "phone": "+91 84292 46067",
       "tags": [
         "Inactive >30d"
       ],
       "totalSpend": 7800,
-      "language": "ta"
+      "language": "ta",
+      "marketingOptIn": true,
+      "optInDate": "2026-07-20"
     }
   ],
   "readinessRules": {
@@ -208,7 +214,7 @@
       "id": "quest-01",
       "title": "Master Amazon Apparel Packaging",
       "xp": 60,
-      "completed": false
+      "completed": true
     },
     {
       "id": "quest-02",
@@ -220,7 +226,7 @@
       "id": "quest-03",
       "title": "Connect n8n Automation Engine",
       "xp": 75,
-      "completed": false
+      "completed": true
     },
     {
       "id": "quest-04",
@@ -229,36 +235,16 @@
       "completed": true
     }
   ],
-  "customers": [
+  "whatsappDeliveryLog": [
     {
-      "id": "cust-101",
-      "name": "Ananya Deshpande",
-      "phone": "+91 98450 12345",
-      "tags": ["VIP", "Bridal"],
-      "totalSpend": 24500,
-      "language": "kn",
-      "marketingOptIn": true,
-      "optInDate": "2026-09-01"
-    },
-    {
-      "id": "cust-102",
-      "name": "Sunita Sharma",
-      "phone": "+91 97112 67890",
-      "tags": ["VIP", "Festive"],
-      "totalSpend": 18200,
-      "language": "hi",
-      "marketingOptIn": true,
-      "optInDate": "2026-08-15"
-    },
-    {
-      "id": "cust-103",
-      "name": "Meenakshi Sundaram",
-      "phone": "+91 94441 55521",
-      "tags": ["Inactive >30d"],
-      "totalSpend": 7800,
-      "language": "ta",
-      "marketingOptIn": true,
-      "optInDate": "2026-07-20"
+      "messageId": "wamid.HBgMOTE4NDI5MjQ2MDY3FQIAERgSOTg2OTRFRjlBNzJCMEJGREMzAA==",
+      "status": "failed",
+      "recipientId": "918429246067",
+      "phoneNumberId": "1086950014496328",
+      "errorCode": 131049,
+      "errorTitle": "This message was not delivered to maintain healthy ecosystem engagement.",
+      "recordedAt": "2026-10-03T21:44:59.298Z",
+      "metaTimestamp": "1791063593"
     }
   ]
 }

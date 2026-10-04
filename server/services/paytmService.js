@@ -52,7 +52,7 @@ async function createPaymentLink({ amount, customerName, orderId, notes }) {
       const body = {
         mid,
         linkType: "GENERIC",
-        linkDescription: notes || `DukaanQuest Order ${effectiveOrderId}`,
+        linkDescription: notes || `ApniDukaan Order ${effectiveOrderId}`,
         linkName: `Dukaan Order - ${customerName || 'Customer'}`,
         amount: effectiveAmount,
         orderId: effectiveOrderId,

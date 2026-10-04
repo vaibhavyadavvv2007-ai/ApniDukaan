@@ -107,7 +107,7 @@ class MeeshoAdapter {
       statusLabel: "Upload Ready (Supplier Panel Flatfile)",
       mode: "upload-file",
       publicApiExists: false,
-      notice: "Meesho does not provide public REST APIs. DukaanQuest generates 100% compliant Supplier Panel flatfiles for one-click bulk ingestion.",
+      notice: "Meesho does not provide public REST APIs. ApniDukaan generates 100% compliant Supplier Panel flatfiles for one-click bulk ingestion.",
       bulkUploadCSV: `${csvHeaders}\n${csvRow}`,
       meeshoFields: {
         sku: masterProduct.sku,

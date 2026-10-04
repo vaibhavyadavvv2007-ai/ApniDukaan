@@ -2,18 +2,27 @@ import React, { useState, useEffect } from 'react';
 import { Copy, Check, Download, ChevronDown, ChevronRight, Send, ShieldCheck } from 'lucide-react';
 import confetti from 'canvas-confetti';
 import * as api from '../../services/api';
+import { useTranslation } from '../../i18n/TranslationProvider';
 
 const CONFETTI_COLORS = ['#E8A33D', '#F2C179', '#7BB88F'];
 
 export default function OmnichannelCatalog({ sampleProducts, t, onNavigateToCrm }) {
+   const { tx } = useTranslation();
   const [selectedProduct, setSelectedProduct] = useState(sampleProducts[0]);
   const [activePlatformTab, setActivePlatformTab] = useState('amazon');
   const [copied, setCopied] = useState(false);
   const [adapterData, setAdapterData] = useState(null);
 
-  // Amazon SP-API Sandbox state
+  // Amazon SP-API Sandbox state.
+  // amazonStatus is the honest source of truth for the badge:
+  //   'checking'   - a live check is in flight (we do not yet know)
+  //   'verified'   - Amazon answered 200
+  //   'unverified' - Amazon answered, but auth/sandbox check did not pass
+  //   'error'      - we could not reach the backend at all
+  // 'checking' is never rendered as "not yet verified".
   const [amazonVerification, setAmazonVerification] = useState(null);
-  const [isVerifyingAmazon, setIsVerifyingAmazon] = useState(false);
+  const [amazonStatus, setAmazonStatus] = useState('checking');
+  const [amazonFailureReason, setAmazonFailureReason] = useState('');
 
   // Amazon Listings POC state
   const [selectedProductType, setSelectedProductType] = useState('SAREE');
@@ -28,29 +37,43 @@ export default function OmnichannelCatalog({ sampleProducts, t, onNavigateToCrm 
   const [listingSubmissionResult, setListingSubmissionResult] = useState(null);
   const [showPayloadDetails, setShowPayloadDetails] = useState(false);
 
+  const runSandboxCheck = async () => {
+    setAmazonStatus('checking');
+    setAmazonFailureReason('');
+    try {
+      const res = await api.verifyAmazonSandbox();
+      setAmazonVerification(res);
+      setAmazonStatus(res?.verified ? 'verified' : 'unverified');
+      if (!res?.verified) setAmazonFailureReason(res?.reason || 'Amazon did not confirm the sandbox connection.');
+    } catch (err) {
+      console.warn('Amazon sandbox verification error:', err);
+      setAmazonVerification(null);
+      setAmazonStatus('error');
+      setAmazonFailureReason(
+        'Could not reach the ApniDukaan backend. Start the API on port 5000 and re-check.'
+      );
+    }
+  };
+
   useEffect(() => {
-    api.verifyAmazonSandbox()
-      .then(res => setAmazonVerification(res))
-      .catch(err => console.warn('Amazon sandbox auto-check:', err));
+    runSandboxCheck();
 
     api.fetchAmazonProductTypes('SAREE')
       .then(res => {
         if (res?.productTypes?.length) setAvailableProductTypes(res.productTypes);
       })
       .catch(() => {});
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
-  const handleVerifyAmazonSandbox = async () => {
-    setIsVerifyingAmazon(true);
-    try {
-      const res = await api.verifyAmazonSandbox();
-      setAmazonVerification(res);
-    } catch (err) {
-      console.warn('Amazon sandbox verification error:', err);
-    } finally {
-      setIsVerifyingAmazon(false);
-    }
-  };
+  const handleVerifyAmazonSandbox = runSandboxCheck;
+
+  const AMAZON_PILL = {
+    checking:   { cls: 'pill-quiet', label: tx('Checking sandbox…') },
+    verified:   { cls: 'pill-ok',    label: tx('Sandbox verified') },
+    unverified: { cls: 'pill-warn',  label: tx('Sandbox not verified') },
+    error:      { cls: 'pill-stop',  label: tx('Sandbox check failed') }
+  }[amazonStatus];
 
   const handleSubmitListing = async () => {
     setIsSubmittingListing(true);
@@ -64,7 +87,7 @@ export default function OmnichannelCatalog({ sampleProducts, t, onNavigateToCrm 
         success: true,
         mode: 'export-fallback',
         sandboxWriteSupported: false,
-        source: 'DukaanQuest Export Engine (Local Sandbox Simulation)',
+        source: 'ApniDukaan Export Engine (Local Sandbox Simulation)',
         sku: selectedProduct.sku,
         status: 'EXPORT_READY',
         exportFormat: 'JSON_LISTINGS_FEED'
@@ -89,17 +112,17 @@ export default function OmnichannelCatalog({ sampleProducts, t, onNavigateToCrm 
 
   // Validation Engine: check selectedProduct against Amazon SP-API requirements
   const validationChecks = [
-    { id: 'item_name', label: 'Product title', valid: !!selectedProduct.title && selectedProduct.title.length <= 200, value: selectedProduct.title, rule: 'Short enough for search results, brand first' },
-    { id: 'brand', label: 'Brand', valid: !!(selectedProduct.brand || 'SHREE GANESH'), value: selectedProduct.brand || 'SHREE GANESH', rule: 'Your shop name as Amazon should show it' },
-    { id: 'bullet_point', label: 'Key features', valid: (selectedProduct.platformListings?.amazon?.bullets?.length || 5) >= 3, value: `${(selectedProduct.platformListings?.amazon?.bullets?.length || 5)} bullet points`, rule: 'Fabric, weave and care, one point each' },
-    { id: 'standard_price', label: 'Price', valid: Number(selectedProduct.basePrice) > 0, value: `₹${Number(selectedProduct.basePrice).toLocaleString()}`, rule: 'Selling price in rupees, no symbols' },
-    { id: 'fulfillment_availability', label: 'Stock', valid: Number(selectedProduct.stockCount) >= 0, value: `${selectedProduct.stockCount} units`, rule: 'How many you can ship from your own store' },
-    { id: 'country_of_origin', label: 'Country of origin', valid: true, value: 'India', rule: 'Where the garment was made' },
-    { id: 'main_product_image_locator', label: 'Main image', valid: !!(selectedProduct.images?.amazonMain || selectedProduct.images?.raw), value: 'Pure white background', rule: 'Plain white background, large enough to zoom' },
-    { id: 'manufacturer', label: 'Manufacturer', valid: true, value: selectedProduct.manufacturer || 'Shree Ganesh Matching & Saree Centre', rule: 'Your registered business name' },
-    { id: 'color', label: 'Colour', valid: true, value: selectedProduct.color || 'Maroon Gold', rule: 'Dominant product shade' },
-    { id: 'department', label: 'Department', valid: true, value: 'Womenswear', rule: 'Who the garment is made for' },
-    { id: 'material_composition', label: 'Material', valid: !!(selectedProduct.fabric), value: selectedProduct.fabric || '100% Pure Mulberry Silk', rule: 'Exact fabric content, in percent' }
+    { id: 'item_name', label: tx('Product title'), valid: !!selectedProduct.title && selectedProduct.title.length <= 200, value: selectedProduct.title, rule: 'Short enough for search results, brand first' },
+    { id: 'brand', label: tx('Brand'), valid: !!(selectedProduct.brand || 'SHREE GANESH'), value: selectedProduct.brand || 'SHREE GANESH', rule: 'Your shop name as Amazon should show it' },
+    { id: 'bullet_point', label: tx('Key features'), valid: (selectedProduct.platformListings?.amazon?.bullets?.length || 5) >= 3, value: `${(selectedProduct.platformListings?.amazon?.bullets?.length || 5)} bullet points`, rule: 'Fabric, weave and care, one point each' },
+    { id: 'standard_price', label: tx('Price'), valid: Number(selectedProduct.basePrice) > 0, value: `₹${Number(selectedProduct.basePrice).toLocaleString()}`, rule: 'Selling price in rupees, no symbols' },
+    { id: 'fulfillment_availability', label: tx('Stock'), valid: Number(selectedProduct.stockCount) >= 0, value: `${selectedProduct.stockCount} units`, rule: 'How many you can ship from your own store' },
+    { id: 'country_of_origin', label: tx('Country of origin'), valid: true, value: 'India', rule: 'Where the garment was made' },
+    { id: 'main_product_image_locator', label: tx('Main image'), valid: !!(selectedProduct.images?.amazonMain || selectedProduct.images?.raw), value: 'Pure white background', rule: 'Plain white background, large enough to zoom' },
+    { id: 'manufacturer', label: tx('Manufacturer'), valid: true, value: selectedProduct.manufacturer || 'Shree Ganesh Matching & Saree Centre', rule: 'Your registered business name' },
+    { id: 'color', label: tx('Colour'), valid: true, value: selectedProduct.color || 'Maroon Gold', rule: 'Dominant product shade' },
+    { id: 'department', label: tx('Department'), valid: true, value: 'Womenswear', rule: 'Who the garment is made for' },
+    { id: 'material_composition', label: tx('Material'), valid: !!(selectedProduct.fabric), value: selectedProduct.fabric || '100% Pure Mulberry Silk', rule: 'Exact fabric content, in percent' }
   ];
 
   const validCount = validationChecks.filter(c => c.valid).length;
@@ -107,11 +130,11 @@ export default function OmnichannelCatalog({ sampleProducts, t, onNavigateToCrm 
   const isAllValid = validCount === totalCount;
 
   const platformMeta = {
-    amazon:    { name: 'Amazon',     status: 'Sandbox connected', tone: 'pill-ok',   spec: 'Amazon selling sandbox, not the live store' },
-    flipkart:  { name: 'Flipkart',   status: 'Partner approval pending', tone: 'pill-warn', spec: 'Seller Hub listing spec v3' },
-    meesho:    { name: 'Meesho',     status: 'Export ready', tone: 'pill-ok',   spec: 'Supplier panel flatfile (CSV)' },
-    myntra:    { name: 'Myntra',     status: 'Partner approval pending', tone: 'pill-warn', spec: 'Partner catalog submission' },
-    nykaa:     { name: 'Nykaa',      status: 'Eligibility workflow', tone: 'pill-quiet', spec: 'Brand association dossier' }
+    amazon:    { name: 'Amazon',     status: 'Sandbox connected', tone: 'pill-ok',   spec: tx('Amazon selling sandbox, not the live store') },
+    flipkart:  { name: 'Flipkart',   status: 'Partner approval pending', tone: 'pill-warn', spec: tx('Seller Hub listing spec v3') },
+    meesho:    { name: 'Meesho',     status: 'Export ready', tone: 'pill-ok',   spec: tx('Supplier panel flatfile (CSV)') },
+    myntra:    { name: 'Myntra',     status: 'Partner approval pending', tone: 'pill-warn', spec: tx('Partner catalog submission') },
+    nykaa:     { name: 'Nykaa',      status: 'Eligibility workflow', tone: 'pill-quiet', spec: tx('Brand association dossier') }
   };
 
   const currentPlatformInfo = platformMeta[activePlatformTab] || platformMeta.amazon;
@@ -165,7 +188,7 @@ export default function OmnichannelCatalog({ sampleProducts, t, onNavigateToCrm 
             style={{ width: 72, height: 72, borderRadius: 'var(--r-md)', objectFit: 'cover', flexShrink: 0 }}
           />
           <div style={{ minWidth: 0 }}>
-            <p className="eyebrow">Listing everything at once</p>
+            <p className="eyebrow">{tx('Listing everything at once')}</p>
             <h2 style={{ fontSize: '1.125rem', marginTop: 4 }}>{selectedProduct.title}</h2>
             <div style={{ display: 'flex', gap: 'var(--s4)', flexWrap: 'wrap', marginTop: 6 }}>
               <span className="mono meta">{selectedProduct.sku}</span>
@@ -186,7 +209,7 @@ export default function OmnichannelCatalog({ sampleProducts, t, onNavigateToCrm 
             }}
             className="field"
             style={{ maxWidth: 260 }}
-            aria-label="Choose a product"
+            aria-label={tx('Choose a product')}
           >
             {sampleProducts.map(p => (
               <option key={p.id} value={p.id}>{p.title}</option>
@@ -205,8 +228,8 @@ export default function OmnichannelCatalog({ sampleProducts, t, onNavigateToCrm 
       {/* ---------- Where it goes ---------- */}
       <section>
         <div className="section-head">
-          <h2>Where this product goes</h2>
-          <span className="meta">Same product, five marketplaces</span>
+          <h2>{tx('Where this product goes')}</h2>
+          <span className="meta">{tx('Same product, five marketplaces')}</span>
         </div>
         <div className="segmented">
           {Object.entries(platformMeta).map(([key, meta]) => (
@@ -230,7 +253,7 @@ export default function OmnichannelCatalog({ sampleProducts, t, onNavigateToCrm 
           <section className="surface" style={{ padding: 'var(--s5)' }}>
             <div className="section-head">
               <div>
-                <h2>Ready to list on Amazon?</h2>
+                <h2>{tx('Ready to list on Amazon?')}</h2>
                 <p className="meta" style={{ marginTop: 2 }}>
                   {validCount} of {totalCount} things Amazon asks for are already on this product
                 </p>
@@ -286,25 +309,23 @@ export default function OmnichannelCatalog({ sampleProducts, t, onNavigateToCrm 
                 </p>
                 <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(200px, 1fr))', gap: 'var(--s3)', marginTop: 'var(--s3)' }}>
                   <div>
-                    <p className="eyebrow">Product</p>
+                    <p className="eyebrow">{tx('Product')}</p>
                     <p className="mono" style={{ marginTop: 2, fontSize: '0.8125rem' }}>{listingSubmissionResult.sku}</p>
                   </div>
                   <div>
-                    <p className="eyebrow">Submission</p>
+                    <p className="eyebrow">{tx('Submission')}</p>
                     <p className="mono" style={{ marginTop: 2, fontSize: '0.8125rem' }}>
                       {listingSubmissionResult.submissionId || 'f1dc2914-75dd-11ea-bc55-0242ac130003'}
                     </p>
                   </div>
                   <div>
                     <p className="eyebrow">Mode</p>
-                    <p style={{ marginTop: 2, fontSize: '0.8125rem' }}>Sandbox, production blocked</p>
+                    <p style={{ marginTop: 2, fontSize: '0.8125rem' }}>{tx('Sandbox, production blocked')}</p>
                   </div>
                 </div>
 
                 {onNavigateToCrm && (
-                  <button onClick={() => onNavigateToCrm(selectedProduct)} className="btn btn-primary btn-sm" style={{ marginTop: 'var(--s4)' }}>
-                    Tell your customers it is live
-                  </button>
+                  <button onClick={() => onNavigateToCrm(selectedProduct)} className="btn btn-primary btn-sm" style={{ marginTop: 'var(--s4)' }}>{tx('Tell your customers it is live')}</button>
                 )}
               </div>
             )}
@@ -313,12 +334,12 @@ export default function OmnichannelCatalog({ sampleProducts, t, onNavigateToCrm 
           {/* Technical specifics, available but out of the way */}
           <details className="model-notes">
             <summary>
-              <span>Product type and API details</span>
+              <span>{tx('Product type and API details')}</span>
               <ChevronDown size={14} />
             </summary>
             <div style={{ paddingTop: 12, display: 'flex', flexDirection: 'column', gap: 'var(--s4)' }}>
               <div>
-                <p className="eyebrow">Category</p>
+                <p className="eyebrow">{tx('Category')}</p>
                 <div className="segmented" style={{ marginTop: 8 }}>
                   {availableProductTypes.map(pt => (
                     <button
@@ -332,22 +353,42 @@ export default function OmnichannelCatalog({ sampleProducts, t, onNavigateToCrm 
                 </div>
               </div>
 
-              <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap' }}>
-                <button onClick={handleVerifyAmazonSandbox} disabled={isVerifyingAmazon} className="btn btn-secondary btn-sm">
-                  {isVerifyingAmazon ? 'Checking' : 'Re-check sandbox connection'}
+              <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap', alignItems: 'center' }}>
+                <button onClick={handleVerifyAmazonSandbox} disabled={amazonStatus === 'checking'} className="btn btn-secondary btn-sm">
+                  {amazonStatus === 'checking' ? 'Checking…' : 'Re-check sandbox connection'}
                 </button>
-                <span className={`pill ${amazonVerification?.verified ? 'pill-ok' : 'pill-quiet'}`}>
-                  {amazonVerification?.verified ? 'Sandbox verified' : 'Sandbox not yet verified'}
-                </span>
+                <span className={`pill ${AMAZON_PILL.cls}`}>{AMAZON_PILL.label}</span>
               </div>
 
-              {amazonVerification && (
-                <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(180px, 1fr))', gap: 'var(--s3)' }}>
-                  <div><p className="eyebrow">Host</p><p className="mono" style={{ marginTop: 2, fontSize: '0.75rem' }}>{amazonVerification.sandboxHost}</p></div>
-                  <div><p className="eyebrow">Endpoint</p><p style={{ marginTop: 2, fontSize: '0.75rem' }}>{amazonVerification.endpointTested}</p></div>
-                  <div><p className="eyebrow">Response</p><p className="mono" style={{ marginTop: 2, fontSize: '0.75rem' }}>{amazonVerification.latencyMs} ms</p></div>
-                </div>
+              {amazonFailureReason && (
+                <p className="meta" style={{ color: amazonStatus === 'error' ? 'var(--stop)' : undefined }}>
+                  {amazonFailureReason}
+                </p>
               )}
+
+              {/* Sandbox endpoint + full URL are always shown, so it is clear which
+                  environment was contacted whether or not the check passed. */}
+              <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(180px, 1fr))', gap: 'var(--s3)' }}>
+                <div>
+                  <p className="eyebrow">{tx('Endpoint')}</p>
+                  <p className="mono" style={{ marginTop: 2, fontSize: '0.75rem' }}>
+                    {amazonVerification?.endpointTested || 'GET /sellers/v1/marketplaceParticipations'}
+                  </p>
+                </div>
+                <div>
+                  <p className="eyebrow">{tx('Sandbox URL')}</p>
+                  <p className="mono" style={{ marginTop: 2, fontSize: '0.75rem', overflow: 'hidden', textOverflow: 'ellipsis' }}>
+                    {amazonVerification?.sandboxUrl || 'https://sandbox.sellingpartnerapi-eu.amazon.com/sellers/v1/marketplaceParticipations'}
+                  </p>
+                </div>
+                <div>
+                  <p className="eyebrow">{tx('Response')}</p>
+                  <p className="mono" style={{ marginTop: 2, fontSize: '0.75rem' }}>
+                    {amazonVerification?.latencyMs != null ? `${amazonVerification.latencyMs} ms` : '—'}
+                    {amazonVerification?.statusCode ? ` · HTTP ${amazonVerification.statusCode}` : ''}
+                  </p>
+                </div>
+              </div>
 
               <button
                 onClick={() => setShowPayloadDetails(!showPayloadDetails)}
@@ -377,16 +418,13 @@ export default function OmnichannelCatalog({ sampleProducts, t, onNavigateToCrm 
               <p className="meta" style={{ marginTop: 2 }}>{currentPlatformInfo.spec}</p>
             </div>
             <button onClick={handleExportCSV} className="btn btn-secondary btn-sm">
-              <Download size={14} /> Download
-            </button>
+              <Download size={14} />{tx('Download')}</button>
           </div>
           <div className="schema">
             <pre>{typeof currentPayload === 'string' ? currentPayload : JSON.stringify(currentPayload, null, 2)}</pre>
           </div>
           {activePlatformTab === 'meesho' && (
-            <p className="meta" style={{ marginTop: 12 }}>
-              Meesho does not offer a public API, so this is a flatfile you upload to their supplier panel.
-            </p>
+            <p className="meta" style={{ marginTop: 12 }}>{tx('Meesho does not offer a public API, so this is a flatfile you upload to their supplier panel.')}</p>
           )}
         </section>
       )}

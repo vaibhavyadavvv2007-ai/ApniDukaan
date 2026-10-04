@@ -2,10 +2,12 @@ import React, { useState } from 'react';
 import { QrCode, Copy, Check, Volume2, Info } from 'lucide-react';
 import confetti from 'canvas-confetti';
 import * as api from '../../services/api';
+import { useTranslation } from '../../i18n/TranslationProvider';
 
 const CONFETTI_COLORS = ['#E8A33D', '#7BB88F'];
 
 export default function PaytmPaymentHub({ shopProfile, t }) {
+   const { tx } = useTranslation();
   const [amount, setAmount] = useState('4850');
   const [customerName, setCustomerName] = useState('Ananya Deshpande');
   const [copied, setCopied] = useState(false);
@@ -62,7 +64,7 @@ export default function PaytmPaymentHub({ shopProfile, t }) {
         <div className="surface" style={{ padding: 'var(--s4) var(--s5)', display: 'flex', alignItems: 'center', gap: 'var(--s3)' }}>
           <Volume2 size={18} color="var(--accent)" />
           <div>
-            <p className="eyebrow">Soundbox announcement (demo)</p>
+            <p className="eyebrow">{tx('Soundbox announcement (demo)')}</p>
             <p style={{ fontSize: '0.9375rem', marginTop: 2 }}>{soundboxText}</p>
           </div>
         </div>
@@ -73,19 +75,17 @@ export default function PaytmPaymentHub({ shopProfile, t }) {
         <section>
           <div className="section-head">
             <div>
-              <h2>Counter QR standee</h2>
-              <p className="meta" style={{ marginTop: 2 }}>Print this for the shop counter</p>
+              <h2>{tx('Counter QR standee')}</h2>
+              <p className="meta" style={{ marginTop: 2 }}>{tx('Print this for the shop counter')}</p>
             </div>
-            <button onClick={() => alert("Printing Demo Counter QR Standee (STAGED/FALLBACK Mode)...")} className="btn btn-secondary btn-sm">
-              Print standee
-            </button>
+            <button onClick={() => alert("Printing Demo Counter QR Standee (STAGED/FALLBACK Mode)...")} className="btn btn-secondary btn-sm">{tx('Print standee')}</button>
           </div>
 
           <div className="qr-panel">
             <div className="qr-frame">
               <div className="qr-mark">
                 <QrCode size={112} />
-                <span>Paytm UPI QR</span>
+                <span>{tx('Paytm UPI QR')}</span>
               </div>
               <span className="qr-demo">Demo</span>
             </div>
@@ -97,11 +97,11 @@ export default function PaytmPaymentHub({ shopProfile, t }) {
 
           <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 'var(--s3)', marginTop: 'var(--s4)' }}>
             <div className="surface" style={{ padding: 'var(--s4)' }}>
-              <p className="eyebrow">Collected this month</p>
+              <p className="eyebrow">{tx('Collected this month')}</p>
               <p className="metric-sm" style={{ marginTop: 4 }}>₹12,450</p>
             </div>
             <div className="surface" style={{ padding: 'var(--s4)' }}>
-              <p className="eyebrow">Payments</p>
+              <p className="eyebrow">{tx('Payments')}</p>
               <p className="metric-sm" style={{ marginTop: 4 }}>8</p>
             </div>
           </div>
@@ -110,15 +110,13 @@ export default function PaytmPaymentHub({ shopProfile, t }) {
         {/* ---------- Link builder ---------- */}
         <section style={{ display: 'flex', flexDirection: 'column', gap: 'var(--s4)' }}>
           <div>
-            <h2>Payment link for a customer far away</h2>
-            <p className="meta" style={{ marginTop: 2, lineHeight: 1.5 }}>
-              Send a link they can pay from any UPI app. Useful when someone orders over WhatsApp.
-            </p>
+            <h2>{tx('Payment link for a customer far away')}</h2>
+            <p className="meta" style={{ marginTop: 2, lineHeight: 1.5 }}>{tx('Send a link they can pay from any UPI app. Useful when someone orders over WhatsApp.')}</p>
           </div>
 
           <div style={{ display: 'grid', gridTemplateColumns: '1fr 140px', gap: 'var(--s3)' }}>
             <div>
-              <label className="eyebrow" htmlFor="cust" style={{ display: 'block', marginBottom: 6 }}>Customer</label>
+              <label className="eyebrow" htmlFor="cust" style={{ display: 'block', marginBottom: 6 }}>{tx('Customer')}</label>
               <input
                 id="cust"
                 type="text"
@@ -128,7 +126,7 @@ export default function PaytmPaymentHub({ shopProfile, t }) {
               />
             </div>
             <div>
-              <label className="eyebrow" htmlFor="amt" style={{ display: 'block', marginBottom: 6 }}>Amount</label>
+              <label className="eyebrow" htmlFor="amt" style={{ display: 'block', marginBottom: 6 }}>{tx('Amount')}</label>
               <input
                 id="amt"
                 type="number"
@@ -146,11 +144,11 @@ export default function PaytmPaymentHub({ shopProfile, t }) {
           <div>
             <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'baseline', marginBottom: 6 }}>
               <span className="eyebrow">Link</span>
-              <span className="meta">Demo data only</span>
+              <span className="meta">{tx('Demo data only')}</span>
             </div>
             <div style={{ display: 'flex', gap: 8 }}>
-              <input type="text" readOnly value={displayLink} className="field mono" style={{ fontSize: '0.75rem' }} aria-label="Generated payment link" />
-              <button onClick={handleCopyLink} className="btn btn-secondary" aria-label="Copy payment link">
+              <input type="text" readOnly value={displayLink} className="field mono" style={{ fontSize: '0.75rem' }} aria-label={tx('Generated payment link')} />
+              <button onClick={handleCopyLink} className="btn btn-secondary" aria-label={tx('Copy payment link')}>
                 {copied ? <Check size={15} color="var(--ok)" /> : <Copy size={15} />}
               </button>
             </div>

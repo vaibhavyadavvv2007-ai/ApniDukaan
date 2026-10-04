@@ -1,6 +1,7 @@
 import React from 'react';
 import { CheckCircle2, Circle, Flame, Star } from 'lucide-react';
 import confetti from 'canvas-confetti';
+import { useTranslation } from '../../i18n/TranslationProvider';
 
 const CONFETTI_COLORS = ['#E8A33D', '#F2C179', '#7BB88F'];
 
@@ -11,6 +12,7 @@ export default function QuestLog({
   streak, 
   onCompleteQuest 
 }) {
+   const { tx } = useTranslation();
   const completedCount = quests.filter(q => q.completed).length;
   const nextQuest = quests.find(q => !q.completed);
 
@@ -29,7 +31,7 @@ export default function QuestLog({
     <section>
       <div className="section-head">
         <div>
-          <h2>Milestones</h2>
+          <h2>{tx('Milestones')}</h2>
           <p className="meta" style={{ marginTop: 2 }}>
             {nextQuest
               ? `Next: ${nextQuest.title}`

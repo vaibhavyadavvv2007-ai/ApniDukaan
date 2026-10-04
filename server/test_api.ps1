@@ -80,21 +80,80 @@ if ($amzPut.status -eq 'ACCEPTED') {
 # 6. n8n CRM Broadcast & Meta WhatsApp Cloud API Verification
 Write-Host "`n[6. n8n CRM HUB -> META WHATSAPP CLOUD API]" -ForegroundColor White
 $tmpl = Invoke-RestMethod -Uri 'http://localhost:5000/api/crm/template-status' -Method Get
-Write-Host "   Template Config: Active: $($tmpl.activeTemplate) ($($tmpl.language)) | Custom: $($tmpl.customTemplateName) ($($tmpl.metaReviewStatus))" -ForegroundColor Gray
 
-$crm = Invoke-RestMethod -Uri 'http://localhost:5000/api/crm/broadcast' -Method Post -Body '{"recipients":[{"name":"Ramesh","phone":"+919845012345","marketingOptIn":true}],"templateText":"Exclusive VIP Offer"}' -ContentType 'application/json'
+# The NORMAL merchant campaign template must be the Meta-approved marketing
+# template dukaanquest_new_arrival. hello_world is a TECHNICAL TEST template
+# and must never be the active campaign template.
+Write-Host "   Active Template : $($tmpl.activeTemplate) ($($tmpl.language), $($tmpl.category))" -ForegroundColor Cyan
+Write-Host "   Role            : $($tmpl.role) | Meta review: $($tmpl.metaReviewStatus)" -ForegroundColor Gray
+Write-Host "   Body Var Order  : $($tmpl.bodyParameterOrder -join ' -> ')" -ForegroundColor Gray
+Write-Host "   Header Params   : $($tmpl.hasHeaderParameters) | Buttons: $($tmpl.hasButtons)" -ForegroundColor Gray
+Write-Host "   Test Template   : $($tmpl.technicalTestTemplate) (explicit test mode only)" -ForegroundColor Gray
 
-if ($crm.liveDeliveryConfirmed) {
-    Write-Host "[OK] Meta WhatsApp Broadcast: LIVE VERIFIED" -ForegroundColor Green
-    Write-Host "   WhatsApp Message ID: $($crm.whatsappMessageId)" -ForegroundColor Cyan
-    Write-Host "   External Confirmation: $($crm.externalStatusDetail)" -ForegroundColor Gray
-} elseif ($crm.dispatchedToLiveInstance) {
-    Write-Host "[..] n8n Webhook: LIVE EXECUTED (Downstream External Meta API Notice)" -ForegroundColor Yellow
-    Write-Host "   Detail: $($crm.externalStatusDetail)" -ForegroundColor Gray
-    Write-Host "   Classification: $($crm.classification) (Does not claim live delivery without external confirmation)" -ForegroundColor Gray
+$templateOk = $true
+if ($tmpl.activeTemplate -ne 'dukaanquest_new_arrival') {
+    Write-Host "[FAIL] Normal campaign template is '$($tmpl.activeTemplate)', expected 'dukaanquest_new_arrival'." -ForegroundColor Red
+    $templateOk = $false
 } else {
-    Write-Host "[--] n8n Webhook: STAGED FALLBACK (n8n instance unreachable)" -ForegroundColor Yellow
+    Write-Host "[OK] Normal campaign template is dukaanquest_new_arrival." -ForegroundColor Green
+}
+if ($tmpl.activeTemplate -eq 'hello_world') {
+    Write-Host "[FAIL] hello_world must never be the normal campaign template." -ForegroundColor Red
+    $templateOk = $false
+} else {
+    Write-Host "[OK] hello_world is NOT the normal campaign template." -ForegroundColor Green
+}
+if ($tmpl.language -ne 'en') {
+    Write-Host "[FAIL] Approved locale is 'en' (verified via Meta Graph API), got '$($tmpl.language)'." -ForegroundColor Red
+    $templateOk = $false
+} else {
+    Write-Host "[OK] Approved language code 'en' matches the Meta-approved template." -ForegroundColor Green
+}
+$expectedOrder = @('customerName','collectionName','shopName','discount')
+if ((($tmpl.bodyParameterOrder -join ',') -ne ($expectedOrder -join ','))) {
+    Write-Host "[FAIL] Body variable order does not match the approved positional order." -ForegroundColor Red
+    $templateOk = $false
+} else {
+    Write-Host "[OK] Body variables match the approved positional order (4 vars)." -ForegroundColor Green
+}
+
+$body = @'
+{"recipients":[{"name":"Ramesh","phone":"+919845012345","marketingOptIn":true}],"templateText":"Exclusive VIP Offer","campaign":{"collectionName":"Festive Kanjeevaram Silk","shopName":"Shree Ganesh Matching & Saree Centre","discount":"15%"}}
+'@
+$crm = Invoke-RestMethod -Uri 'http://localhost:5000/api/crm/broadcast' -Method Post -Body $body -ContentType 'application/json'
+
+# Assert the exact Meta request structure that was staged for n8n.
+$sent = $crm.stagedPayloadPreview.primaryRecipientPayload
+if ($sent.template.name -eq 'dukaanquest_new_arrival' -and $sent.template.language.code -eq 'en') {
+    Write-Host "[OK] Meta request structure: template=$($sent.template.name) lang=$($sent.template.language.code) params=$($sent.template.components[0].parameters.Count)" -ForegroundColor Green
+} else {
+    Write-Host "[FAIL] Unexpected Meta request structure: $($sent.template.name) / $($sent.template.language.code)" -ForegroundColor Red
+    $templateOk = $false
+}
+
+if ($crm.liveDeliveryConfirmed -and $crm.whatsappMessageId) {
+    Write-Host "[OK] Meta WhatsApp Broadcast: LIVE VERIFIED" -ForegroundColor Green
+    Write-Host "   WhatsApp Message ID (wamid): $($crm.whatsappMessageId)" -ForegroundColor Cyan
+    Write-Host "   External Confirmation: $($crm.externalStatusDetail)" -ForegroundColor Gray
+} elseif ($crm.metaRejection) {
+    Write-Host "[FAIL] Meta REJECTED the request. Code $($crm.metaRejection.code) subcode $($crm.metaRejection.subcode)" -ForegroundColor Red
+    Write-Host "   Reason : $($crm.metaRejection.message)" -ForegroundColor Red
+    Write-Host "   Hint   : $($crm.metaRejection.hint)" -ForegroundColor Yellow
+    Write-Host "   NOTE: no silent fallback to hello_world was performed." -ForegroundColor Gray
+    $templateOk = $false
+} elseif ($crm.dispatchedToLiveInstance) {
+    Write-Host "[..] n8n Webhook: RECEIVED (delivery not yet confirmed by Meta)" -ForegroundColor Yellow
     Write-Host "   Detail: $($crm.externalStatusDetail)" -ForegroundColor Gray
+    Write-Host "   Classification: $($crm.classification) (no live delivery claimed without a wamid)" -ForegroundColor Gray
+} else {
+    Write-Host "[--] n8n Webhook: UNREACHABLE (staged payload only, nothing sent)" -ForegroundColor Yellow
+    Write-Host "   Detail: $($crm.externalStatusDetail)" -ForegroundColor Gray
+}
+
+if (-not $templateOk) {
+    Write-Host "[!] SECTION 6 RESULT: FAILED" -ForegroundColor Red
+} else {
+    Write-Host "[OK] SECTION 6 RESULT: TEMPLATE INTEGRATION CHECKS PASSED" -ForegroundColor Green
 }
 
 # 7. Omnichannel Transformation & Scraper

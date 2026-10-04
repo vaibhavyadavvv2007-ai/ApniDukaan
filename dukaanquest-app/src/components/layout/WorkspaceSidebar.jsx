@@ -13,6 +13,7 @@ import {
   ChevronRight
 } from 'lucide-react';
 import { NAV, navLabel } from '../../data/workspace';
+import { useTranslation } from '../../i18n/TranslationProvider';
 
 const ICONS = {
   store: Store,
@@ -41,15 +42,16 @@ export default function WorkspaceSidebar({
   integrations,
   t
 }) {
+   const { tx } = useTranslation();
   return (
     <aside className={`sidebar${navOpen ? ' sidebar-open' : ''}`}>
       <div className="sidebar-brand">
         <div className="brand-mark" aria-hidden="true"><Store size={20} /></div>
         <div>
-          <span className="brand-name">dukaan<span className="brand-accent">quest</span></span>
+          <span className="brand-name">apni<span className="brand-accent">dukaan</span></span>
           <span className="brand-sub">{profile.location}</span>
         </div>
-        <button className="mobile-close btn btn-quiet" aria-label="Close navigation" onClick={onClose}>
+        <button className="mobile-close btn btn-quiet" aria-label={tx('Close navigation')} onClick={onClose}>
           <X size={18} />
         </button>
       </div>
@@ -65,7 +67,7 @@ export default function WorkspaceSidebar({
 
       <p className="nav-caption">WORKSPACE</p>
 
-      <nav className="sidebar-nav" aria-label="Primary">
+      <nav className="sidebar-nav" aria-label={tx('Primary')}>
         {NAV.map(item => {
           const Icon = ICONS[item.icon];
           const active = activeTab === item.id;
@@ -98,7 +100,7 @@ export default function WorkspaceSidebar({
             aria-valuenow={Math.min(xp, 600)}
             aria-valuemin={0}
             aria-valuemax={600}
-            aria-label="Experience toward the next level"
+            aria-label={tx('Experience toward the next level')}
           >
             <div className="track-fill" style={{ transform: `scaleX(${Math.min(1, xp / 600)})` }} />
           </div>
@@ -107,7 +109,7 @@ export default function WorkspaceSidebar({
           </p>
           {nextQuest && (
             <div className="level-next">
-              <span className="level-next-label">Next milestone</span>
+              <span className="level-next-label">{tx('Next milestone')}</span>
               <span className="level-next-title">{nextQuest.title}</span>
               <span className="level-next-xp mono">+{nextQuest.xp} XP</span>
             </div>
@@ -119,9 +121,9 @@ export default function WorkspaceSidebar({
           <select
             value={currentLang}
             onChange={(e) => onLanguageChange(e.target.value)}
-            aria-label="Interface language"
+            aria-label={tx('Interface language')}
           >
-            <option value="en">English</option>
+            <option value="en">{tx('English')}</option>
             <option value="hi">हिंदी</option>
             <option value="kn">ಕನ್ನಡ</option>
             <option value="ta">தமிழ்</option>
@@ -149,7 +151,7 @@ export default function WorkspaceSidebar({
           </ul>
         </details>
 
-        <p className="meta"><Layers size={13} /> DukaanQuest · HackSprint prototype</p>
+        <p className="meta"><Layers size={13} />ApniDukaan · HackSprint prototype</p>
       </div>
     </aside>
   );

@@ -3,6 +3,61 @@ const path = require('path');
 
 const DB_FILE = path.join(__dirname, 'data.json');
 
+// ── Deployment-aware persistence ─────────────────────────────────
+// Local development writes data.json in place and keeps working exactly as
+// before. On serverless hosts (Vercel Functions) the filesystem is read-only
+// outside /tmp and is ephemeral between invocations, so every write would throw.
+//
+// Rather than throwing (which would turn XP, quest and checklist actions into
+// 500s) or silently pretending a write succeeded, we record the real outcome
+// and expose it through /api/health as `persistence`. Reads keep working from
+// the committed seed either way.
+//
+// Consequence in production: the store is effectively read-only demo data.
+// Migrating to a hosted database is the fix; see VERCEL_DEPLOYMENT.md.
+let persistence = {
+  writable: true,
+  lastError: null,
+  lastErrorAt: null
+};
+
+function markWriteFailure(err) {
+  persistence = {
+    writable: false,
+    lastError: err.message,
+    lastErrorAt: new Date().toISOString()
+  };
+  // Log once per distinct failure to avoid flooding serverless logs.
+  if (persistence.lastError !== err.message) {
+    console.warn('[db] Write failed; running read-only with seed data:', err.message);
+  }
+}
+
+/** Real persistence state, reported honestly by /api/health. */
+function getPersistenceStatus() {
+  return {
+    mode: persistence.writable ? 'PERSISTENT_FILE' : 'READ_ONLY_SEED',
+    writable: persistence.writable,
+    detail: persistence.writable
+      ? `Writes to ${DB_FILE} persist for the life of the process.`
+      : 'This host cannot persist writes (read-only or ephemeral filesystem). ' +
+        'XP, quest completion, packaging checklist and the WhatsApp delivery log are NOT saved. ' +
+        'Reads still return the committed seed data.',
+    lastError: persistence.lastError,
+    lastErrorAt: persistence.lastErrorAt
+  };
+}
+
+// Probe writability once at startup so /api/health is accurate before the first
+// write attempt. Vercel marks the bundle read-only, so this fails fast there.
+function probeWritable() {
+  try {
+    fs.accessSync(path.dirname(DB_FILE), fs.constants.W_OK);
+  } catch (err) {
+    markWriteFailure(err);
+  }
+}
+
 // Initial seed data
 const initialData = {
   shopProfile: {
@@ -68,7 +123,7 @@ const initialData = {
     {
       id: "cust-101",
       name: "Ananya Deshpande",
-      phone: "+91 98450 12345",
+      phone: "+91 84292 46067",
       tags: ["VIP", "Bridal"],
       totalSpend: 24500,
       language: "kn",
@@ -78,7 +133,7 @@ const initialData = {
     {
       id: "cust-102",
       name: "Sunita Sharma",
-      phone: "+91 97112 67890",
+      phone: "+91 84292 46067",
       tags: ["VIP", "Festive"],
       totalSpend: 18200,
       language: "hi",
@@ -88,7 +143,7 @@ const initialData = {
     {
       id: "cust-103",
       name: "Meenakshi Sundaram",
-      phone: "+91 94441 55521",
+      phone: "+91 84292 46067",
       tags: ["Inactive >30d"],
       totalSpend: 7800,
       language: "ta",
@@ -137,7 +192,14 @@ const initialData = {
 // Ensure database file exists
 function loadDB() {
   if (!fs.existsSync(DB_FILE)) {
-    fs.writeFileSync(DB_FILE, JSON.stringify(initialData, null, 2), 'utf-8');
+    try {
+      fs.writeFileSync(DB_FILE, JSON.stringify(initialData, null, 2), 'utf-8');
+    } catch (err) {
+      // Cannot create the file (read-only host). Serve the seed from memory;
+      // the app stays readable instead of erroring on every route.
+      markWriteFailure(err);
+      return JSON.parse(JSON.stringify(initialData));
+    }
     return initialData;
   }
   try {
@@ -145,15 +207,30 @@ function loadDB() {
     return JSON.parse(raw);
   } catch (err) {
     console.error('Error reading DB file, resetting to initial seed:', err);
-    return initialData;
+    return JSON.parse(JSON.stringify(initialData));
   }
 }
 
+/**
+ * Persists the store. Returns true when the write landed, false when the host
+ * refuses it. Never throws, so callers keep responding with a truthful payload
+ * instead of a 500.
+ */
 function saveDB(data) {
-  fs.writeFileSync(DB_FILE, JSON.stringify(data, null, 2), 'utf-8');
+  try {
+    fs.writeFileSync(DB_FILE, JSON.stringify(data, null, 2), 'utf-8');
+    if (!persistence.writable) persistence = { writable: true, lastError: null, lastErrorAt: null };
+    return true;
+  } catch (err) {
+    markWriteFailure(err);
+    return false;
+  }
 }
+
+probeWritable();
 
 module.exports = {
   loadDB,
-  saveDB
+  saveDB,
+  getPersistenceStatus
 };

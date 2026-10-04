@@ -20,10 +20,11 @@ if (dotenvResult.error) {
   });
 }
 
-const { loadDB, saveDB } = require('./db/database');
+const { loadDB, saveDB, getPersistenceStatus } = require('./db/database');
 const { analyzeAndEnhanceImage, extractCatalogAttributes, generateOrTransformProductImage, getGeminiHealth } = require('./services/geminiService');
-const { translateIndicText, transcribeSpeech, synthesizeSpeech, getSarvamHealth } = require('./services/sarvamService');
+const { translateIndicText, translateBatch, transcribeSpeech, synthesizeSpeech, getSarvamHealth } = require('./services/sarvamService');
 const { dispatchN8NWebhook, getN8NWorkflowDefinition, getN8NHealth, getWhatsAppTemplateConfig } = require('./services/n8nService');
+const { recordStatusWebhook, getDeliveryStatus, listDeliveryStatuses } = require('./services/whatsappStatusService');
 const { createPaymentLink, checkPaymentStatus, getPaytmHealth } = require('./services/paytmService');
 const { scrapeMarketplaceSpecs } = require('./services/scraperService');
 const { transformMasterProduct } = require('./services/marketplaceAdapters');
@@ -33,7 +34,41 @@ const { searchProductTypes, getProductTypeDefinition, putListingsItem, buildList
 const app = express();
 const PORT = process.env.PORT || 5000;
 
-app.use(cors());
+// ── CORS ────────────────────────────────────────────────────────
+// Local dev: the Vite server on :5173 is a different origin from :5000.
+// Production: FRONTEND_URL names the deployed frontend origin(s).
+// A wildcard is never used, so a deployed backend cannot be driven from an
+// arbitrary site. When FRONTEND_URL is set the allowlist is enforced; when it
+// is not (unset in production), same-origin requests still work and the
+// browser blocks cross-origin callers on its own.
+const ALLOWED_ORIGINS = (process.env.FRONTEND_URL || '')
+  .split(',')
+  .map(o => o.trim().replace(/\/+$/, ''))
+  .filter(Boolean);
+
+// Extra origins that must keep working during local development.
+const LOCAL_DEV_ORIGINS = [
+  'http://localhost:5173',
+  'http://127.0.0.1:5173',
+  'http://localhost:4173',
+  'http://127.0.0.1:4173'
+];
+
+const corsOptions = {
+  origin(origin, callback) {
+    // No Origin header: same-origin, curl, server-to-server, or the Meta
+    // webhook. These are not browser cross-origin requests.
+    if (!origin) return callback(null, true);
+    const allowed = ALLOWED_ORIGINS.includes(origin.replace(/\/+$/, ''))
+      || LOCAL_DEV_ORIGINS.includes(origin.replace(/\/+$/, ''));
+    return callback(null, allowed);
+  },
+  methods: ['GET', 'POST', 'PUT', 'DELETE', 'OPTIONS'],
+  allowedHeaders: ['Content-Type', 'Authorization'],
+  maxAge: 86400
+};
+
+app.use(cors(corsOptions));
 app.use(express.json({ limit: '25mb' }));
 app.use(express.urlencoded({ extended: true, limit: '25mb' }));
 
@@ -97,6 +132,9 @@ app.get('/api/health', async (req, res) => {
         ? 'Some services are in FALLBACK mode. Check verificationDetail for each.'
         : 'All services are operational (LIVE, SANDBOX, or STAGED).'
     },
+    // Honest storage state. On serverless hosts the store cannot be written, so
+    // this reports READ_ONLY_SEED rather than implying progress is saved.
+    persistence: getPersistenceStatus(),
     services: {
       gemini: {
         classification: geminiClassification,
@@ -234,8 +272,8 @@ app.put('/api/shop/xp', (req, res) => {
     db.shopProfile.level = 3;
     db.shopProfile.levelTitle = "Digital Vyapari";
   }
-  saveDB(db);
-  res.json(db.shopProfile);
+  const persisted = saveDB(db);
+  res.json({ ...db.shopProfile, persisted, persistence: getPersistenceStatus() });
 });
 
 // ==========================================
@@ -253,8 +291,8 @@ app.post('/api/products', (req, res) => {
     ...req.body
   };
   db.products.push(newProduct);
-  saveDB(db);
-  res.status(201).json(newProduct);
+  const persisted = saveDB(db);
+  res.status(201).json({ ...newProduct, persisted, persistence: getPersistenceStatus() });
 });
 
 // Omnichannel transform endpoint: Master Product -> Amazon, Flipkart, Meesho, Myntra, Nykaa
@@ -315,7 +353,7 @@ app.post('/api/amazon/listings/export', (req, res) => {
   res.json({
     success: true,
     mode: 'export',
-    source: 'DukaanQuest Listings Export Engine',
+    source: 'ApniDukaan Listings Export Engine',
     format: 'JSON_LISTINGS_FEED',
     exportReadyPayload: payload,
     uploadInstructions: {
@@ -341,9 +379,9 @@ app.post('/api/readiness/toggle', (req, res) => {
     db.readinessRules[platform].checklist = db.readinessRules[platform].checklist.map(item => 
       item.id === taskId ? { ...item, completed: !!completed } : item
     );
-    saveDB(db);
   }
-  res.json({ success: true, readinessRules: db.readinessRules });
+  const persisted = saveDB(db);
+  res.json({ success: true, persisted, persistence: getPersistenceStatus(), readinessRules: db.readinessRules });
 });
 
 app.get('/api/readiness/scrape', async (req, res) => {
@@ -417,13 +455,14 @@ app.get('/api/crm/customers', (req, res) => {
 });
 
 app.post('/api/crm/broadcast', async (req, res) => {
-  const { campaignId, recipients, templateText, paymentLink, merchantApproved = true } = req.body;
+  const { campaignId, recipients, templateText, paymentLink, merchantApproved = true, campaign } = req.body;
   const result = await dispatchN8NWebhook({
     campaignId: campaignId || `CAMP_${Date.now()}`,
     recipients: recipients || [],
     templateText: templateText || '',
     paymentLink: paymentLink || '',
-    merchantApproved
+    merchantApproved,
+    campaign: campaign || {}
   });
   res.json(result);
 });
@@ -436,12 +475,56 @@ app.get('/api/crm/template-status', (req, res) => {
   res.json(getWhatsAppTemplateConfig());
 });
 
+// Meta WhatsApp Cloud API delivery-status callback.
+// Subscribe this URL on the WABA for the `messages` field. Meta answers 200 as
+// soon as the body is parsed and then reports sent/delivered/failed separately,
+// which is the only trustworthy delivery signal.
+// Meta's subscription verification is a GET, not a POST.
+function handleMetaVerification(req, res, next) {
+  if (req.query['hub.mode'] !== 'subscribe') return next();
+  const expected = process.env.META_WEBHOOK_VERIFY_TOKEN;
+  if (expected && req.query['hub.verify_token'] === expected) {
+    return res.status(200).send(String(req.query['hub.challenge'] || ''));
+  }
+  return res.sendStatus(403);
+}
+
+app.post('/api/whatsapp/status', handleMetaVerification, (req, res) => {
+  let written = 0;
+  try {
+    written = recordStatusWebhook(req.body);
+  } catch (err) {
+    console.error('[WhatsApp Status] Failed to record webhook:', err);
+    // Still answer 200: a non-2xx makes Meta retry and eventually disable the field.
+  }
+  console.log(`[WhatsApp Status] Recorded ${written} status update(s)`);
+  res.sendStatus(200);
+});
+
+app.get('/api/whatsapp/status', handleMetaVerification, (req, res) => {
+  res.json(listDeliveryStatuses(25));
+});
+
+app.get('/api/whatsapp/status/:messageId', (req, res) => {
+  res.json(getDeliveryStatus(req.params.messageId));
+});
+
 // ==========================================
 // 7. SARVAM AI INDIC LANGUAGE SUITE
 // ==========================================
 app.post('/api/sarvam/translate', async (req, res) => {
   const { text, targetLanguage } = req.body;
   const result = await translateIndicText({ text, targetLanguage });
+  res.json(result);
+});
+
+// Batch variant: localizes the whole UI shell in one call from the client.
+app.post('/api/sarvam/translate-batch', async (req, res) => {
+  const { texts, targetLanguage } = req.body;
+  const result = await translateBatch({
+    texts: Array.isArray(texts) ? texts.slice(0, 400) : [],
+    targetLanguage: targetLanguage || 'hi'
+  });
   res.json(result);
 });
 
@@ -483,15 +566,35 @@ app.post('/api/quests/complete', (req, res) => {
   const { questId } = req.body;
   const db = loadDB();
   db.quests = db.quests.map(q => q.id === questId ? { ...q, completed: true } : q);
-  saveDB(db);
-  res.json({ success: true, quests: db.quests });
+  const persisted = saveDB(db);
+  res.json({ success: true, persisted, persistence: getPersistenceStatus(), quests: db.quests });
 });
 
-// Start Server
-app.listen(PORT, () => {
-  console.log(`====================================================`);
-  console.log(`🚀 DukaanQuest Backend Server listening on port ${PORT}`);
-  console.log(`🔗 Health API: http://127.0.0.1:${PORT}/api/health`);
-  console.log(`📦 Gemini Pro, Sarvam AI, n8n Hub, & Paytm Armed`);
-  console.log(`====================================================`);
+// ── Error handler ───────────────────────────────────────────────
+// Keeps a thrown route from leaving the function in an undefined state.
+// Registered last so it catches errors from every route above.
+app.use((err, req, res, next) => {
+  console.error(`[Express] ${req.method} ${req.originalUrl} failed:`, err.message);
+  if (res.headersSent) return next(err);
+  res.status(500).json({
+    error: 'Internal server error',
+    detail: err.message
+  });
 });
+
+// ── Export the app for Vercel ───────────────────────────────────
+// Vercel runs this file as a single Function and routes requests through the
+// exported app instead of a port listener, so `module.exports` must be the app.
+// `npm start` / `node index.js` still binds a real port locally.
+module.exports = app;
+
+if (require.main === module) {
+  app.listen(PORT, () => {
+    console.log(`====================================================`);
+    console.log(`🚀 DukaanQuest Backend Server listening on port ${PORT}`);
+    console.log(`🔗 Health API: http://127.0.0.1:${PORT}/api/health`);
+    console.log(`🌐 Allowed frontend origins: ${ALLOWED_ORIGINS.length ? ALLOWED_ORIGINS.join(', ') : '(none configured — set FRONTEND_URL for cross-origin browser access)'}`);
+    console.log(`📦 Gemini Pro, Sarvam AI, n8n Hub, & Paytm Armed`);
+    console.log(`====================================================`);
+  });
+}

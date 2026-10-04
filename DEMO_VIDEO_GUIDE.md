@@ -69,7 +69,7 @@ Tell the demo as ONE continuous story — Ramesh-ji's Tuesday:
 | **5. Marketplace listing** | Get on Amazon without a consultant | Clicks Submit to SP-API Sandbox | Validates 11 required Amazon attributes, exchanges real OAuth tokens, calls Amazon's **sandbox** | Amazon SP-API + Login with Amazon (SANDBOX, verified) | Validation matrix 11/11 PASS + sandbox result |
 | **6. Customer segmentation** | Reach his best customers | Picks the VIP segment in CRM hub | Filters his customer list by tags | React state | Customer cards with "Opt-in: Verified" |
 | **7. Regional language marketing** | Talk to customers in Kannada/Hindi/Tamil | Switches the app language | Translates the campaign message live | Sarvam AI `mayura:v1` (LIVE) + fallback dictionary | WhatsApp preview updates to native script |
-| **8. WhatsApp campaign** | Send it — but stay in control | Clicks Broadcast → approves modal | n8n workflow sends the Meta-approved template; consent (DPDP) enforced; returns a real message ID | n8n → Meta WhatsApp Cloud API (LIVE when n8n runs) | Dispatch result with wamid badge |
+| **8. WhatsApp campaign** | Send it — but stay in control | Clicks Broadcast → approves modal | n8n workflow sends the Meta-approved marketing template `dukaanquest_new_arrival`; consent (DPDP) enforced; returns a real message ID | n8n → Meta WhatsApp Cloud API (Meta acceptance LIVE VERIFIED; n8n hop depends on the webhook being registered) | Dispatch result with wamid badge |
 | **9. Profit/ROI simulation** | Know if marketing ₹10,000 is smart | Drags sliders in simulator | Runs 3 fixed growth strategies side-by-side with labeled assumptions | Pure deterministic React math (no AI) | 3 strategy cards, B recommended |
 | **10. Business decision** | Choose the smart path | Clicks "Adopt Strategy B & Complete Quest" | Records the decision, awards XP | React state | Confetti + level bar moves |
 | **11. Quest completion** | Feel progress | Returns to Town | Level 3 **Digital Vyapari** unlocked, all quests completed | Game engine in App.jsx | Town + header shows Level 3 |
@@ -134,9 +134,9 @@ The app bakes this journey into a banner at the top: **"3-Min Golden Journey:"**
   6. In the **"Merchant Approval Required"** modal, click **"Yes, Authorize Broadcast"**.
 - **WHAT APPEARS ON SCREEN:**
   - A visual n8n pipeline: **Webhook Trigger → DPDP Opt-In Check → Sarvam AI Indic → Paytm Gateway → Meta WhatsApp**, with a badge "🟢 n8n Webhook Live" (or "Webhook Armed" if n8n is down).
-  - Template bar: **"Live Meta Template: hello_world — Delivering Live"** and *"Custom: dukaanquest_new_arrival (Review In Progress)"*.
+  - Template bar: **"Approved marketing template: dukaanquest_new_arrival (en)"** — the normal campaign path — plus a quiet line noting `hello_world` is the **technical test template** only.
   - A green WhatsApp phone bubble: *"Shree Ganesh Matching Centre • Official Business"* with the translated festive-saree message, a Paytm link, and "✓✓ Delivered".
-  - After approval: **"Campaign Broadcast Successfully Triggered!"** with badges for Template, Delivery: 100%, Mode, and — when n8n + Meta are healthy — a **`wamid:` badge (the real Meta message ID)**.
+  - After approval: **"Campaign Broadcast Successfully Triggered!"** with badges for Template, Delivery: 100%, Mode, and — when n8n + Meta are healthy — a **`wamid:` badge (the real Meta message ID)**. If Meta rejects the request the UI shows **"Campaign was not delivered"** with the reason, and never falls back to another template.
 - **WHAT HAPPENS IN THE BACKGROUND:** The frontend POSTs the campaign to `/api/crm/broadcast` → backend filters out any customer without marketing opt-in (DPDP Act 2023 compliance), normalizes phone numbers to E.164, builds the exact Meta WhatsApp Cloud API template payload, and POSTs it to the local **n8n** webhook → n8n's workflow calls **Meta's WhatsApp Cloud API** → the backend extracts Meta's message ID (`wamid.…`) as delivery proof. If n8n isn't running, the backend returns the full payload as `staged-fallback` and the UI still shows a success-style card (with the honest mode badge).
 - **TECHNOLOGY USED:** `WhatsAppCRMHub.jsx` → `/api/crm/broadcast` → `n8nService.js` → n8n (`:5678`) → Meta WhatsApp Cloud API; translation via `sarvamService.js` → Sarvam `mayura:v1`.
 - **EXPECTED RESULT:** Success card + wamid badge; +40 XP (header XP ticks up 420 → 460).
@@ -307,7 +307,7 @@ npm run client         # runs: vite dev server  →  port 5173 (host 127.0.0.1)
 | **Gemini — image generation** (`gemini-3.1-flash-image`) | AI hero/lifestyle images | 🟡 **STAGED** (HTTP 429 — free tier quota is 0; needs Google Cloud billing) | Clearly-labeled curated catalog assets in the 4 asset tabs | Same staged assets — by design |
 | **Sarvam AI** (`mayura:v1`) | Hindi/Kannada/Tamil translation of campaign | 🟢 **LIVE** (verified 694 ms) | WhatsApp preview translates on language switch | Built-in Indic dictionary fallback (fixed sentences) |
 | **n8n engine** (`:5678`) | Workflow automation hub | 🟢 **LIVE** (healthz 200 verified) | Pipeline diagram + "🟢 n8n Webhook Live" badge | "Webhook Armed" badge + staged payload mode |
-| **Meta WhatsApp Cloud API** (via n8n) | Real template message delivery (`hello_world`; custom template pending Meta approval) | 🟢 **LIVE — previously verified via recorded `wamid`**; re-verify before recording | wamid badge in the dispatch result | `staged-fallback` result card (no wamid shown — don't say "delivered") |
+| **Meta WhatsApp Cloud API** (via n8n) | Real template message delivery using the **approved marketing template `dukaanquest_new_arrival` (locale `en`)** | 🟢 **Template LIVE VERIFIED** — Meta accepted the exact service payload and returned `wamid.HBgMOTE4NDI5MjQ2MDY3FQIAERgSRDQ5OTZGQUYyQTBFOUY4NUNFAA==`; the n8n hop still depends on the webhook being registered | wamid badge in the dispatch result | `staged` result card (no wamid shown — don't say "delivered") |
 | **Amazon SP-API** (LWA OAuth2 + sandbox) | Marketplace auth + listing POC | 🟠 **SANDBOX** (verified 200, ~1.4 s; production blocked by design) | Green sandbox pill, 11/11 validation, payload JSON | Amber "Sandbox Authenticated" + export payload |
 | **Paytm** (links/QR/Soundbox) | Payments demo | 🟡 **STAGED/FALLBACK** (never live — Paytm dashboard can't issue test keys) | `[DEMO LINK]`, `DEMO QR`, Soundbox text banner — always with badges | It *is* the backup; nothing to fall back from |
 | **Flipkart FMS v3** | Listing payload generator | 🟡 **STAGED** | JSON payload on the Flipkart tab | Same |
@@ -503,7 +503,7 @@ Everything below already exists in the app on a fresh load:
 | Other products (only if showing the carousel) | Handloom Chanderi Cotton Silk Kurta Set ₹2,200; Men's Classic Khadi Handspun Kurta ₹1,450 | Same |
 | Amazon product type | **Saree** (default selected in the type buttons) | Catalog default |
 | Customers | 5 demo customers; **VIP segment = Ananya Deshpande + Sunita Sharma** (both opt-in) | CRM hub |
-| Campaign | Title "Festive Kanjeevaram Saree Launch", **VIP Discount 15%** (default), WhatsApp template `hello_world` (en_US) | CRM defaults |
+| Campaign | Title "Festive Kanjeevaram Saree Launch", **VIP Discount 15%** (default), WhatsApp template `dukaanquest_new_arrival` (approved locale `en`) | CRM defaults |
 | Languages | Start English → switch to **हिंदी (Hindi)** on camera (optionally flash ಕನ್ನಡ/தமிழ்) | Navbar dropdown |
 | Simulator inputs | **Budget ₹10,000** (default), **Customers 184** (default) — expected Strategy B result ≈ ₹35,044 / 43% / ~2-day payback | Simulator defaults |
 | Paytm (optional beat) | Amount **4850**, customer **Ananya Deshpande** (defaults) | Paytm hub defaults |
@@ -577,7 +577,7 @@ That is exactly §9 (narration) + §4 (clicks) + §10 (shot list) combined. Budg
 
 **Why Amazon sandbox?** It's the real SP-API with real OAuth (Login with Amazon), isolated from production so a demo can never create a live listing. `productionPublishingBlocked` is hard-coded.
 
-**How does WhatsApp automation work?** The frontend POSTs the campaign to our backend, which enforces consent (skips `marketingOptIn: false`), normalizes numbers to E.164, and POSTs to a local n8n webhook; the n8n workflow calls Meta's WhatsApp Cloud API with the approved template (`hello_world` today, custom template pending Meta review — switching is one environment variable). Meta returns a `wamid` message ID, which we surface as delivery proof.
+**How does WhatsApp automation work?** The frontend POSTs the campaign to our backend, which enforces consent (skips `marketingOptIn: false`), normalizes numbers to E.164, and POSTs to a local n8n webhook; the n8n workflow calls Meta's WhatsApp Cloud API with our Meta-approved marketing template `dukaanquest_new_arrival` (locale `en`, four approved body variables: customer name, collection, shop name, discount). Meta returns a `wamid` message ID, which we surface as delivery proof. `hello_world` is retained strictly as a technical connectivity-test template and is never used for merchant campaigns.
 
 **Why n8n?** It's the automation layer merchants would eventually extend themselves (more triggers, more channels) — and it keeps our backend thin: we dispatch events; n8n owns delivery and retry logic.
 

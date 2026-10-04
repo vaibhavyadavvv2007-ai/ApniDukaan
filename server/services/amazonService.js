@@ -117,6 +117,9 @@ async function verifySandboxCredentials() {
       sandboxStatus: 'FALLBACK_READY',
       verified: false,
       reason: tokenResult.reason || 'Token exchange failed',
+      endpointTested: 'GET /sellers/v1/marketplaceParticipations',
+      sandboxHost: 'https://sandbox.sellingpartnerapi-eu.amazon.com',
+      sandboxUrl: 'https://sandbox.sellingpartnerapi-eu.amazon.com/sellers/v1/marketplaceParticipations',
       latencyMs: Date.now() - startTime,
       credentialAudit: {
         clientIdConfigured: !!(process.env.AMAZON_LWA_CLIENT_ID || process.env.AMAZON_CLIENT_ID),
@@ -129,7 +132,8 @@ async function verifySandboxCredentials() {
 
   // Use the European/Indian sandbox endpoint
   const sandboxHost = 'https://sandbox.sellingpartnerapi-eu.amazon.com';
-  const targetEndpoint = `${sandboxHost}/sellers/v1/marketplaceParticipations`;
+  const endpointPath = '/sellers/v1/marketplaceParticipations';
+  const targetEndpoint = `${sandboxHost}${endpointPath}`;
 
   try {
     const response = await axios.get(targetEndpoint, {
@@ -148,8 +152,9 @@ async function verifySandboxCredentials() {
       verified: true,
       mode: 'sandbox-verified',
       sandboxStatus: 'AUTHENTICATED_AND_VERIFIED',
-      endpointTested: 'GET /sellers/v1/marketplaceParticipations',
+      endpointTested: `GET ${endpointPath}`,
       sandboxHost,
+      sandboxUrl: targetEndpoint,
       latencyMs,
       statusCode: response.status,
       marketplaceParticipationsCount: participations.length,
@@ -183,6 +188,10 @@ async function verifySandboxCredentials() {
       statusCode: status,
       latencyMs,
       error: errorData || err.message,
+      reason: `Amazon sandbox responded with HTTP ${status}.`,
+      endpointTested: `GET ${endpointPath}`,
+      sandboxHost,
+      sandboxUrl: targetEndpoint,
       credentialAudit: {
         maskedClientId: maskCredential(process.env.AMAZON_LWA_CLIENT_ID || process.env.AMAZON_CLIENT_ID)
       }

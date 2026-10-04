@@ -10,10 +10,13 @@ import {
 import confetti from 'canvas-confetti';
 import * as api from '../../services/api';
 import { prepareWhiteBackgroundAsset } from '../../utils/whiteBackground';
+import { fitImageToBudget, uploadFilename } from '../../utils/imageBudget';
+import { useTranslation } from '../../i18n/TranslationProvider';
 
 const CONFETTI_COLORS = ['#E8A33D', '#F2C179', '#7BB88F'];
 
 export default function GeminiPhotoStudio({ sampleProducts, t, onNavigateToCatalog }) {
+   const { tx } = useTranslation();
   const [selectedProduct, setSelectedProduct] = useState(sampleProducts[0]);
   const [activeAssetTab, setActiveAssetTab] = useState('amazonMain');
   const [isProcessing, setIsProcessing] = useState(false);
@@ -49,8 +52,11 @@ export default function GeminiPhotoStudio({ sampleProducts, t, onNavigateToCatal
     setProcessingStage('Reading the fabric and stitching of your photo');
 
     try {
+      // Shrink to fit the deploy request-body ceiling before uploading; the
+      // analysis pipeline is unchanged.
+      const payload = await fitImageToBudget(file);
       const formData = new FormData();
-      formData.append('image', file);
+      formData.append('image', payload, uploadFilename(file.name));
       formData.append('productContext', selectedProduct?.title || 'Apparel / Saree');
 
       setProcessingStage('Separating fabric from the shop background');
@@ -124,10 +130,10 @@ export default function GeminiPhotoStudio({ sampleProducts, t, onNavigateToCatal
     : (selectedProduct.images[activeAssetTab] || amazonMainImage);
 
   const assets = [
-    { id: 'amazonMain', name: 'Amazon main', note: 'Pure white background', img: amazonMainImage },
-    { id: 'myntraLifestyle', name: 'Myntra lifestyle', note: 'On-model drape', img: selectedProduct.images.myntraLifestyle },
-    { id: 'fabricDetail', name: 'Weave detail', note: 'Zari close-up', img: selectedProduct.images.fabricDetail },
-    { id: 'dimensionGraphic', name: 'Measurements', note: 'Length and blouse', img: selectedProduct.images.dimensionGraphic }
+    { id: 'amazonMain', name: 'Amazon main', note: tx('Pure white background'), img: amazonMainImage },
+    { id: 'myntraLifestyle', name: 'Myntra lifestyle', note: tx('On-model drape'), img: selectedProduct.images.myntraLifestyle },
+    { id: 'fabricDetail', name: 'Weave detail', note: tx('Zari close-up'), img: selectedProduct.images.fabricDetail },
+    { id: 'dimensionGraphic', name: 'Measurements', note: tx('Length and blouse'), img: selectedProduct.images.dimensionGraphic }
   ];
 
   return (
@@ -152,7 +158,7 @@ export default function GeminiPhotoStudio({ sampleProducts, t, onNavigateToCatal
               }}
               className="field"
               style={{ marginTop: 4, padding: '4px 8px', fontSize: '0.8125rem', maxWidth: 280 }}
-              aria-label="Choose a product"
+              aria-label={tx('Choose a product')}
             >
               {sampleProducts.map(p => (
                 <option key={p.id} value={p.id}>{p.title} (₹{p.basePrice.toLocaleString()})</option>
@@ -164,13 +170,12 @@ export default function GeminiPhotoStudio({ sampleProducts, t, onNavigateToCatal
         <div style={{ display: 'flex', gap: 8 }}>
           <input ref={fileInputRef} type="file" accept="image/*" onChange={handleFileUpload} style={{ display: 'none' }} />
           <button onClick={() => fileInputRef.current?.click()} disabled={isProcessing} className="btn btn-secondary btn-sm">
-            <Upload size={14} /> Upload photo
-          </button>
+            <Upload size={14} />{tx('Upload photo')}</button>
           <button onClick={handleRunGemini} disabled={isProcessing} className="btn btn-primary">
             {isProcessing ? (
-              <>Working...</>
+              <>{tx('Working...')}</>
             ) : (
-              <><Wand2 size={15} /> Re-enhance with Gemini</>
+              <><Wand2 size={15} />{tx('Re-enhance with Gemini')}</>
             )}
           </button>
         </div>
@@ -191,12 +196,12 @@ export default function GeminiPhotoStudio({ sampleProducts, t, onNavigateToCatal
             <div className="compare-before" style={{ clipPath: `inset(0 ${100 - splitPos}% 0 0)` }}>
               <img
                 src={activeAssetTab === 'amazonMain' ? amazonMainImage : (uploadedImagePreview || beforeCompareImage)}
-                alt="Original shop photo"
+                alt={tx('Original shop photo')}
               />
             </div>
             <span className="compare-handle" style={{ left: `${splitPos}%` }} aria-hidden="true" />
-            <span className="compare-tag compare-tag-left">Your photo</span>
-            <span className="compare-tag compare-tag-right">Studio version</span>
+            <span className="compare-tag compare-tag-left">{tx('Your photo')}</span>
+            <span className="compare-tag compare-tag-right">{tx('Studio version')}</span>
             <input
               type="range"
               min="0"
@@ -204,25 +209,22 @@ export default function GeminiPhotoStudio({ sampleProducts, t, onNavigateToCatal
               value={splitPos}
               onChange={(e) => setSplitPos(Number(e.target.value))}
               className="compare-range"
-              aria-label="Compare your photo with the studio version"
+              aria-label={tx('Compare your photo with the studio version')}
             />
           </div>
-          <figcaption className="meta" style={{ marginTop: 10, textAlign: 'center' }}>
-            Drag the handle to compare
-          </figcaption>
+          <figcaption className="meta" style={{ marginTop: 10, textAlign: 'center' }}>{tx('Drag the handle to compare')}</figcaption>
         </figure>
 
         <div style={{ display: 'flex', flexDirection: 'column', gap: 'var(--s5)', minWidth: 0 }}>
           {/* Asset strip: four outputs, quiet */}
           <section>
             <div className="section-head" style={{ marginBottom: 'var(--s3)' }}>
-              <h2 style={{ fontSize: '0.9375rem' }}>What you get</h2>
+              <h2 style={{ fontSize: '0.9375rem' }}>{tx('What you get')}</h2>
               <button
                 onClick={() => alert(`Downloading 4K asset bundle (4 images) for SKU: ${selectedProduct.sku}`)}
                 className="btn btn-quiet btn-sm"
               >
-                <Download size={13} /> Download all
-              </button>
+                <Download size={13} />{tx('Download all')}</button>
             </div>
             <div className="asset-strip">
               {assets.map(a => {
@@ -248,7 +250,7 @@ export default function GeminiPhotoStudio({ sampleProducts, t, onNavigateToCatal
           {analysisResult ? (
             <section className="surface" style={{ padding: 'var(--s4) var(--s5)' }}>
               <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'baseline', gap: 12, flexWrap: 'wrap' }}>
-                <h2 style={{ fontSize: '0.9375rem' }}>What Gemini read</h2>
+                <h2 style={{ fontSize: '0.9375rem' }}>{tx('What Gemini read')}</h2>
                 {analysisResult.complianceScore && (
                   <span className="pill pill-ok">Compliance {analysisResult.complianceScore}/100</span>
                 )}
@@ -256,21 +258,21 @@ export default function GeminiPhotoStudio({ sampleProducts, t, onNavigateToCatal
 
               {analysisResult.productTitle && (
                 <div style={{ marginTop: 'var(--s4)' }}>
-                  <p className="eyebrow">Listing title</p>
+                  <p className="eyebrow">{tx('Listing title')}</p>
                   <p style={{ fontSize: '0.9375rem', marginTop: 3 }}>{analysisResult.productTitle}</p>
                 </div>
               )}
 
               {analysisResult.fabricClassification && (
                 <div style={{ marginTop: 'var(--s4)' }}>
-                  <p className="eyebrow">Fabric</p>
+                  <p className="eyebrow">{tx('Fabric')}</p>
                   <p className="meta" style={{ marginTop: 3, color: 'var(--text-2)' }}>{analysisResult.fabricClassification}</p>
                 </div>
               )}
 
               {analysisResult.amazonBullets && (
                 <div style={{ marginTop: 'var(--s4)' }}>
-                  <p className="eyebrow">How marketplaces would list it</p>
+                  <p className="eyebrow">{tx('How marketplaces would list it')}</p>
                   <ul style={{ marginTop: 6, paddingLeft: 18, display: 'flex', flexDirection: 'column', gap: 5 }}>
                     {analysisResult.amazonBullets.map((b, i) => (
                       <li key={i} className="meta" style={{ color: 'var(--text-2)' }}>{b}</li>
@@ -295,26 +297,20 @@ export default function GeminiPhotoStudio({ sampleProducts, t, onNavigateToCatal
           {/* Model detail, folded away: honest but not dominant */}
           <details className="model-notes">
             <summary>
-              <span>Which models are running</span>
+              <span>{tx('Which models are running')}</span>
               <ChevronDown size={14} />
             </summary>
             <div style={{ paddingTop: 10, display: 'flex', flexDirection: 'column', gap: 6 }}>
               <p className="meta">
-                <span className="pill pill-ok" style={{ marginRight: 8 }}>Live</span>
-                gemini-3.1-flash-lite reads fabric and writes attributes.
-              </p>
+                <span className="pill pill-ok" style={{ marginRight: 8 }}>Live</span>{tx('gemini-3.1-flash-lite reads fabric and writes attributes.')}</p>
               <p className="meta">
-                <span className="pill pill-warn" style={{ marginRight: 8 }}>Staged</span>
-                gemini-3.1-flash-image renders the alternate views once the Google Cloud project has billing enabled.
-              </p>
-              <p className="meta">Until then the alternate views use prepared catalog assets. No generated images are presented as real.</p>
+                <span className="pill pill-warn" style={{ marginRight: 8 }}>{tx('Staged')}</span>{tx('gemini-3.1-flash-image renders the alternate views once the Google Cloud project has billing enabled.')}</p>
+              <p className="meta">{tx('Until then the alternate views use prepared catalog assets. No generated images are presented as real.')}</p>
             </div>
           </details>
 
           {onNavigateToCatalog && (
-            <button onClick={() => onNavigateToCatalog(selectedProduct)} className="btn btn-primary" style={{ alignSelf: 'flex-start' }}>
-              List this on marketplaces
-              <ArrowRight size={15} />
+            <button onClick={() => onNavigateToCatalog(selectedProduct)} className="btn btn-primary" style={{ alignSelf: 'flex-start' }}>{tx('List this on marketplaces')}<ArrowRight size={15} />
             </button>
           )}
         </div>

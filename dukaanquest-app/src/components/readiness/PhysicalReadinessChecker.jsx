@@ -9,6 +9,7 @@ import {
   X
 } from 'lucide-react';
 import confetti from 'canvas-confetti';
+import { useTranslation } from '../../i18n/TranslationProvider';
 
 const CONFETTI_COLORS = ['#E8A33D', '#F2C179', '#7BB88F'];
 
@@ -17,6 +18,7 @@ export default function PhysicalReadinessChecker({
   onToggleTask, 
   t 
 }) {
+   const { tx } = useTranslation();
   const [selectedPlatform, setSelectedPlatform] = useState('amazon');
   const [showPrintModal, setShowPrintModal] = useState(false);
   const [scrapedData, setScrapedData] = useState(null);
@@ -59,7 +61,7 @@ export default function PhysicalReadinessChecker({
   return (
     <div className="stack">
       {/* Platform switcher: segmented, quiet */}
-      <div className="segmented" role="tablist" aria-label="Marketplace">
+      <div className="segmented" role="tablist" aria-label={tx('Marketplace')}>
         {Object.entries(readinessRules).map(([key, data]) => {
           const active = selectedPlatform === key;
           const done = data.checklist.filter(i => i.completed).length;
@@ -108,7 +110,7 @@ export default function PhysicalReadinessChecker({
           </div>
           <div style={{ minWidth: 150 }}>
             <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'baseline', marginBottom: 7 }}>
-              <span className="eyebrow">Ready</span>
+              <span className="eyebrow">{tx('Ready')}</span>
               <span className="mono" style={{ fontSize: '0.9375rem', fontWeight: 500 }}>{progressPct}%</span>
             </div>
             <div className="track" style={{ height: 5 }}>
@@ -116,8 +118,7 @@ export default function PhysicalReadinessChecker({
             </div>
             {isCertified && (
               <p className="meta" style={{ marginTop: 7, color: 'var(--ok)', display: 'flex', alignItems: 'center', gap: 5 }}>
-                <ShieldCheck size={13} /> All mandatory steps done
-              </p>
+                <ShieldCheck size={13} />{tx('All mandatory steps done')}</p>
             )}
           </div>
           <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap' }}>
@@ -129,8 +130,7 @@ export default function PhysicalReadinessChecker({
               <Sparkles size={14} /> {isScraping ? 'Reading specs...' : 'Check live marketplace specs'}
             </button>
             <button onClick={() => setShowPrintModal(true)} className="btn btn-quiet btn-sm">
-              <Printer size={14} /> Print checklist
-            </button>
+              <Printer size={14} />{tx('Print checklist')}</button>
           </div>
         </div>
       </section>
@@ -149,11 +149,10 @@ export default function PhysicalReadinessChecker({
                 rel="noreferrer"
                 className="meta"
                 style={{ color: 'var(--accent-soft)', display: 'inline-flex', alignItems: 'center', gap: 4, marginTop: 3 }}
-              >
-                View source <ExternalLink size={11} />
+              >{tx('View source')}<ExternalLink size={11} />
               </a>
             </div>
-            <button onClick={() => setScrapedData(null)} className="btn btn-quiet btn-sm" aria-label="Dismiss">
+            <button onClick={() => setScrapedData(null)} className="btn btn-quiet btn-sm" aria-label={tx('Dismiss')}>
               <X size={14} />
             </button>
           </div>
@@ -166,7 +165,7 @@ export default function PhysicalReadinessChecker({
           </ul>
           {scrapedData.returnsProtocol && (
             <p className="meta" style={{ marginTop: 14, paddingTop: 12, borderTop: '1px solid var(--line-faint)' }}>
-              <strong style={{ color: 'var(--text-2)', fontWeight: 500 }}>Returns</strong> {scrapedData.returnsProtocol}
+              <strong style={{ color: 'var(--text-2)', fontWeight: 500 }}>{tx('Returns')}</strong> {scrapedData.returnsProtocol}
             </p>
           )}
         </div>
@@ -208,7 +207,7 @@ export default function PhysicalReadinessChecker({
                   }}>
                     {item.title}
                   </span>
-                  {item.mandatory && <span className="pill pill-warn">Required</span>}
+                  {item.mandatory && <span className="pill pill-warn">{tx('Required')}</span>}
                 </span>
                 <span className="meta" style={{ display: 'block', marginTop: 3, lineHeight: 1.45 }}>
                   {item.spec}
@@ -228,35 +227,33 @@ export default function PhysicalReadinessChecker({
             className="surface"
             role="dialog"
             aria-modal="true"
-            aria-label="Packaging and labeling standards"
+            aria-label={tx('Packaging and labeling standards')}
             onClick={(e) => e.stopPropagation()}
             style={{ maxWidth: 560, width: '100%', padding: 'var(--s5)', maxHeight: '85vh', overflowY: 'auto' }}
           >
             <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 'var(--s4)' }}>
-              <h2 style={{ fontSize: '1.0625rem' }}>Packaging and labeling standards</h2>
-              <button onClick={() => setShowPrintModal(false)} className="btn btn-quiet btn-sm" aria-label="Close">
+              <h2 style={{ fontSize: '1.0625rem' }}>{tx('Packaging and labeling standards')}</h2>
+              <button onClick={() => setShowPrintModal(false)} className="btn btn-quiet btn-sm" aria-label={tx('Close')}>
                 <X size={15} />
               </button>
             </div>
             <div style={{ display: 'flex', flexDirection: 'column', gap: 'var(--s4)' }}>
               <div>
-                <p style={{ fontWeight: 500, marginBottom: 3 }}>Polybag warning sticker</p>
+                <p style={{ fontWeight: 500, marginBottom: 3 }}>{tx('Polybag warning sticker')}</p>
                 <p className="meta">"WARNING: To avoid danger of suffocation, keep this plastic bag away from babies and children." Minimum 10pt.</p>
               </div>
               <div>
-                <p style={{ fontWeight: 500, marginBottom: 3 }}>Barcode label (FNSKU)</p>
-                <p className="meta">2 × 1 inch thermal sticker carrying product title, SKU, condition, and barcode.</p>
+                <p style={{ fontWeight: 500, marginBottom: 3 }}>{tx('Barcode label (FNSKU)')}</p>
+                <p className="meta">{tx('2 × 1 inch thermal sticker carrying product title, SKU, condition, and barcode.')}</p>
               </div>
               <div>
-                <p style={{ fontWeight: 500, marginBottom: 3 }}>Outer carton sealing</p>
-                <p className="meta">2 inch pressure-sensitive tape along all centre and edge seams in an H pattern.</p>
+                <p style={{ fontWeight: 500, marginBottom: 3 }}>{tx('Outer carton sealing')}</p>
+                <p className="meta">{tx('2 inch pressure-sensitive tape along all centre and edge seams in an H pattern.')}</p>
               </div>
               <button
                 onClick={() => { alert("Packaging Spec Sheet sent to printer / PDF download started!"); setShowPrintModal(false); }}
                 className="btn btn-primary"
-              >
-                Print or save as PDF
-              </button>
+              >{tx('Print or save as PDF')}</button>
             </div>
           </div>
         </div>

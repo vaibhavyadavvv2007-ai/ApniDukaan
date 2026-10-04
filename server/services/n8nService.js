@@ -8,44 +8,216 @@ const axios = require('axios');
 
 /**
  * Normalize phone numbers to international E.164 digits without spaces or symbols
- * e.g., "+91 98450 12345" -> "919845012345"
+ * e.g., "+91 84292 46067" -> "918429246067"
+ *
+ * The fallback is the single number registered on this WABA's recipient allow
+ * list, so a recipient missing a phone cannot silently become an undeliverable
+ * placeholder.
  */
+const ALLOW_LISTED_TEST_NUMBER = '918429246067';
+
+/**
+ * Resolve the n8n production webhook URL.
+ *
+ * Local development: N8N_WEBHOOK_URL is unset, so the self-hosted n8n on
+ * :5678 is used. That is correct on a laptop.
+ *
+ * Production (VERCEL=1): the localhost fallback is deliberately NOT applied.
+ * A deployed function cannot reach localhost:5678, so silently dialling it
+ * would burn request time and report a misleading network error. We surface
+ * "not configured" instead, which /api/health reports as FALLBACK and the CRM
+ * panel shows as a configuration problem rather than a delivery failure.
+ *
+ * n8n must be reachable from the public internet for WhatsApp sends to work.
+ * See VERCEL_DEPLOYMENT.md for the tunnel/hosting requirement.
+ */
+const LOCAL_N8N_WEBHOOK = 'http://localhost:5678/webhook/dukaanquest-crm';
+
+function getN8NWebhookUrl() {
+  const configured = process.env.N8N_WEBHOOK_URL;
+  if (configured && configured.trim()) return configured.trim();
+
+  if (process.env.VERCEL) {
+    // Returned unchanged so callers can detect the unconfigured production case.
+    return null;
+  }
+  return LOCAL_N8N_WEBHOOK;
+}
+
+
+
 function normalizePhone(rawPhone) {
-  if (!rawPhone) return '919845012345';
+  if (!rawPhone) return ALLOW_LISTED_TEST_NUMBER;
   const digitsOnly = String(rawPhone).replace(/\D/g, '');
   if (digitsOnly.length === 10) return `91${digitsOnly}`;
   return digitsOnly;
 }
 
 /**
- * Get current environment-driven WhatsApp Template configuration
- * Uses hello_world as verified live test template; switchable to dukaanquest_new_arrival once approved
+ * WhatsApp Template Registry
+ *
+ * Every entry mirrors a template that Meta has actually APPROVED for this WABA.
+ * Structure was read live from Meta's Graph API (WABA 3219266728257873) via
+ * GET /{waba-id}/message_templates -- it is NOT guessed.
+ *
+ * dukaanquest_new_arrival (verified APPROVED, category MARKETING):
+ *   language : "en"      <-- NOT "en_US"; only this one locale is approved
+ *   format   : POSITIONAL
+ *   HEADER   : TEXT "BIG SAVING !!"  -> contains NO {{n}} placeholders, so Meta
+ *              expects NO header component in the send payload
+ *   BODY     : "Hi {{1}} ... new {{2}} collection has arrived at {{3}}. ...
+ *              you get {{4}} off this week."
+ *              -> exactly 4 body variables, in this exact positional order:
+ *                 {{1}} customer name
+ *                 {{2}} collection / product name
+ *                 {{3}} shop name
+ *                 {{4}} discount
+ *   BUTTONS  : none -> no button component is sent
+ *
+ * hello_world (verified APPROVED, category UTILITY):
+ *   language "en_US", body has NO placeholders -> no components at all.
+ *   Retained ONLY as an explicit technical connectivity-test template.
+ */
+const TEMPLATE_REGISTRY = {
+  dukaanquest_new_arrival: {
+    name: 'dukaanquest_new_arrival',
+    language: 'en',
+    category: 'MARKETING',
+    metaReviewStatus: 'APPROVED',
+    role: 'APPROVED_MARKETING_TEMPLATE',
+    // Exact positional body variable order, as approved by Meta.
+    bodyParameterOrder: ['customerName', 'collectionName', 'shopName', 'discount'],
+    hasHeaderParameters: false,
+    hasButtons: false,
+    description: 'DukaanQuest approved marketing template (Meta APPROVED, locale "en")'
+  },
+  hello_world: {
+    name: 'hello_world',
+    language: 'en_US',
+    category: 'UTILITY',
+    metaReviewStatus: 'APPROVED',
+    role: 'TECHNICAL_TEST_TEMPLATE',
+    bodyParameterOrder: [],
+    hasHeaderParameters: false,
+    hasButtons: false,
+    description: 'Meta technical connectivity-test template. Not for merchant campaigns.'
+  }
+};
+
+const APPROVED_CAMPAIGN_TEMPLATE = 'dukaanquest_new_arrival';
+const TECHNICAL_TEST_TEMPLATE = 'hello_world';
+
+/**
+ * Build the exact `components` array Meta expects for a given approved template.
+ * Returns an empty array when the template takes no parameters (hello_world),
+ * so we never invent parameters Meta did not approve.
+ */
+function buildTemplateComponents(definition, values) {
+  if (!definition.bodyParameterOrder.length) return [];
+
+  return [{
+    type: 'body',
+    parameters: definition.bodyParameterOrder.map((field) => ({
+      type: 'text',
+      text: String(values[field] ?? '')
+    }))
+  }];
+}
+
+/**
+ * Get current environment-driven WhatsApp Template configuration.
+ *
+ * The NORMAL merchant campaign template is dukaanquest_new_arrival.
+ * hello_world is reachable ONLY when the operator explicitly selects the
+ * technical test mode (WHATSAPP_TEMPLATE_NAME=hello_world). It is never
+ * substituted automatically as a fallback.
  */
 function getWhatsAppTemplateConfig() {
-  const activeTemplate = process.env.WHATSAPP_TEMPLATE_NAME || 'hello_world';
-  const language = process.env.WHATSAPP_TEMPLATE_LANG || 'en_US';
-  const customTemplateName = process.env.WHATSAPP_CUSTOM_TEMPLATE_NAME || 'dukaanquest_new_arrival';
-  const isCustomActive = activeTemplate === customTemplateName;
+  const requestedTemplate =
+    process.env.WHATSAPP_TEMPLATE_NAME || process.env.WHATSAPP_CUSTOM_TEMPLATE_NAME || APPROVED_CAMPAIGN_TEMPLATE;
+  const definition = TEMPLATE_REGISTRY[requestedTemplate] || TEMPLATE_REGISTRY[APPROVED_CAMPAIGN_TEMPLATE];
+  const isTestTemplate = definition.name === TECHNICAL_TEST_TEMPLATE;
 
   return {
-    activeTemplate,
-    language,
-    customTemplateName,
-    isCustomActive,
-    status: isCustomActive ? 'CUSTOM_PRODUCTION_ACTIVE' : 'LIVE_VERIFIED_HELLO_WORLD',
-    metaReviewStatus: isCustomActive ? 'APPROVED' : 'SUBMITTED_UNDER_REVIEW',
-    liveDeliveryVerified: true,
-    description: isCustomActive
-      ? 'Custom DukaanQuest Marketing Template (Approved by Meta)'
-      : 'Meta Live Verified Test Template (hello_world) — Environment switch ready for dukaanquest_new_arrival'
+    activeTemplate: definition.name,
+    language: process.env.WHATSAPP_TEMPLATE_LANG || definition.language,
+    category: definition.category,
+    role: definition.role,
+    isCustomActive: !isTestTemplate,
+    isTestTemplate,
+    metaReviewStatus: definition.metaReviewStatus,
+    status: isTestTemplate ? 'TECHNICAL_TEST_MODE_ACTIVE' : 'APPROVED_MARKETING_TEMPLATE_ACTIVE',
+    bodyParameterOrder: definition.bodyParameterOrder,
+    hasHeaderParameters: definition.hasHeaderParameters,
+    hasButtons: definition.hasButtons,
+    customTemplateName: APPROVED_CAMPAIGN_TEMPLATE,
+    technicalTestTemplate: TECHNICAL_TEST_TEMPLATE,
+    description: definition.description
   };
 }
 
 /**
- * Dispatch campaign broadcast to n8n webhook
+ * The n8n HTTP Request node uses continueRegularOutput, so a Meta rejection comes
+ * back inside an HTTP 200 webhook response rather than as a 4xx. Dig the real Meta
+ * error out of the n8n response so the merchant is never told a failed send is
+ * merely "pending confirmation".
  */
-async function dispatchN8NWebhook({ campaignId, recipients = [], templateText = '', paymentLink = '', merchantApproved = true }) {
-  const webhookUrl = process.env.N8N_WEBHOOK_URL || 'http://localhost:5678/webhook/dukaanquest-crm';
+function extractMetaErrorFromN8NResponse(n8nResponse) {
+  const meta = n8nResponse?.meta;
+  if (!meta || typeof meta !== 'object') return null;
+
+  const candidates = [
+    meta.error_data && JSON.parse(meta.error_data).error,
+    meta.details && meta.details.body,
+    meta.response && meta.response.data,
+    meta.error && meta.error.response && JSON.parse(meta.error.response.data || '{}').error,
+  ];
+
+  for (const candidate of candidates) {
+    if (candidate && candidate.error && candidate.error.code) return candidate;
+  }
+  return null;
+}
+
+/**
+ * Classify a Meta Graph API error so the merchant sees WHY the send failed,
+ * instead of a generic downstream failure. Never resolves to a template swap.
+ */
+function classifyMetaError(data) {
+  const err = data?.error;
+  if (!err) return null;
+
+  const code = err.code;
+  const subcode = err.error_subcode;
+  let hint = 'Meta rejected the request.';
+
+  if (code === 190) hint = 'Meta access token is invalid or expired. Place a fresh valid token in the existing secure credential store.';
+  else if (code === 131048) hint = 'Message failed to send because the template parameter count or format is invalid.';
+  else if (code === 132001) hint = 'Template does not exist for the requested name/language. Check the approved template name and locale.';
+  else if (code === 132005) hint = 'Template is not in APPROVED status and cannot be used for marketing sends.';
+  else if (code === 132012) hint = 'Template parameter formatting error. Verify the approved variable order.';
+  else if (code === 133000) hint = 'This message has been sent too many times to the same recipient (Meta rate limit).';
+  else if (code === 131047) hint = 'Re-engagement message outside the 24-hour customer service window.';
+  else if (code === 470) hint = 'Recipient outside the allowed country/region for this business.';
+  else if (code === 131026) hint = 'Recipient has not opted in to marketing messages.';
+  else if (code === 131030) hint = 'Recipient phone number is not on this business account\'s verified recipient allow list. Add the number in Meta WhatsApp Manager -> Phone numbers -> Recipient allow list, then send again.';
+
+  return { code, subcode, title: err.error_user_title || err.type || 'MetaError', message: err.message, hint };
+}
+
+/**
+ * Dispatch campaign broadcast to n8n webhook
+ *
+ * NOTE ON LANGUAGE: the approved dukaanquest_new_arrival template is registered
+ * with Meta only in locale "en", and its body text is fixed by Meta apart from the
+ * four approved {{1}}..{{4}} variables. Sarvam-translated campaign copy is therefore
+ * carried as the merchant-reviewed campaign record (messageTemplate.body) and for
+ * audit -- it is NOT injected into the Meta template body, because doing so would
+ * send unapproved text under an approved template name. Regional delivery requires
+ * additional Meta-approved localized template variants.
+ */
+async function dispatchN8NWebhook({ campaignId, recipients = [], templateText = '', paymentLink = '', merchantApproved = true, campaign = {} }) {
+  const webhookUrl = getN8NWebhookUrl();
   const startTime = Date.now();
   const templateConfig = getWhatsAppTemplateConfig();
 
@@ -53,11 +225,15 @@ async function dispatchN8NWebhook({ campaignId, recipients = [], templateText = 
   const optedInRecipients = recipients.filter(r => r.marketingOptIn !== false);
   const optedOutCount = recipients.length - optedInRecipients.length;
 
+  const templateDefinition = TEMPLATE_REGISTRY[templateConfig.activeTemplate];
+
   // Format recipient payloads with exact Meta WhatsApp Cloud API template specs
   const recipientsPayload = optedInRecipients.map(r => {
     const formattedTo = normalizePhone(r.phone);
 
-    // Meta template object
+    // Meta template object. Language comes from the registry (verified approved
+    // locale) unless explicitly overridden, and components are built only from
+    // the approved positional variable list -- never invented.
     const metaTemplate = {
       name: templateConfig.activeTemplate,
       language: {
@@ -65,19 +241,14 @@ async function dispatchN8NWebhook({ campaignId, recipients = [], templateText = 
       }
     };
 
-    // If using custom template (once approved by Meta), inject body parameters
-    if (templateConfig.activeTemplate !== 'hello_world') {
-      metaTemplate.components = [
-        {
-          type: "body",
-          parameters: [
-            { type: "text", text: r.name || "Valued Shopper" },
-            { type: "text", text: "Festive Collection" },
-            { type: "text", text: paymentLink || "https://paytm.me/dukaan/sg-15" }
-          ]
-        }
-      ];
-    }
+    const components = buildTemplateComponents(templateDefinition, {
+      customerName: r.name || 'there',
+      collectionName: campaign.collectionName || 'Festive Collection',
+      shopName: campaign.shopName || 'our shop',
+      discount: campaign.discount || ''
+    });
+
+    if (components.length) metaTemplate.components = components;
 
     return {
       name: r.name,
@@ -124,7 +295,18 @@ async function dispatchN8NWebhook({ campaignId, recipients = [], templateText = 
       type: "template",
       template: {
         name: templateConfig.activeTemplate,
-        language: { code: templateConfig.language }
+        language: { code: templateConfig.language },
+        ...(buildTemplateComponents(templateDefinition, {
+          customerName: recipients[0]?.name || 'there',
+          collectionName: campaign.collectionName || 'Festive Collection',
+          shopName: campaign.shopName || 'our shop',
+          discount: campaign.discount || ''
+        }).length ? { components: buildTemplateComponents(templateDefinition, {
+          customerName: recipients[0]?.name || 'there',
+          collectionName: campaign.collectionName || 'Festive Collection',
+          shopName: campaign.shopName || 'our shop',
+          discount: campaign.discount || ''
+        }) } : {})
       }
     }
   };
@@ -136,8 +318,22 @@ async function dispatchN8NWebhook({ campaignId, recipients = [], templateText = 
   let errorDetail = null;
   let externalStatusDetail = null;
   let whatsappMessageId = null;
+  let metaRejection = null;
 
-  // Helper to extract Meta WhatsApp message ID (wamid) from n8n executions
+  // Snapshot the highest n8n execution id BEFORE dispatching, so only executions
+  // triggered by THIS campaign can be used as delivery proof.
+  let baselineExecutionId = 0;
+  try {
+    const { DatabaseSync } = require('node:sqlite');
+    const os = require('os');
+    const path = require('path');
+    const db = new DatabaseSync(path.join(os.homedir(), '.n8n', 'database.sqlite'), { readOnly: true });
+    baselineExecutionId = (db.prepare('SELECT MAX(id) AS m FROM execution_entity').get()?.m) || 0;
+  } catch (e) {}
+
+  // Extract a Meta message ID (wamid) from n8n executions that started AFTER
+  // this dispatch began. Scoping by id prevents a wamid from an EARLIER campaign
+  // being reported as proof of delivery for THIS campaign.
   function getLatestMetaMessageId() {
     try {
       const { DatabaseSync } = require('node:sqlite');
@@ -145,7 +341,9 @@ async function dispatchN8NWebhook({ campaignId, recipients = [], templateText = 
       const os = require('os');
       const dbPath = path.join(os.homedir(), '.n8n', 'database.sqlite');
       const db = new DatabaseSync(dbPath, { readOnly: true });
-      const lastExec = db.prepare('SELECT id, finished, status FROM execution_entity ORDER BY id DESC LIMIT 1').get();
+      const lastExec = db.prepare(
+        'SELECT id, finished, status FROM execution_entity WHERE id > ? ORDER BY id DESC LIMIT 1'
+      ).get(baselineExecutionId);
       if (lastExec && lastExec.status === 'success') {
         const dataRow = db.prepare('SELECT data FROM execution_data WHERE executionId = ?').get(lastExec.id);
         if (dataRow?.data) {
@@ -158,6 +356,13 @@ async function dispatchN8NWebhook({ campaignId, recipients = [], templateText = 
     return null;
   }
 
+  if (!webhookUrl) {
+    // Deployed environment with N8N_WEBHOOK_URL unset. Report a configuration
+    // gap rather than implying an attempt was made.
+    executionStatus = 'N8N_NOT_CONFIGURED';
+    externalStatusDetail = 'N8N_WEBHOOK_URL is not set on this deployment, so no message was sent. WhatsApp automation requires an n8n instance reachable from the public internet.';
+  }
+
   if (webhookUrl) {
     let targetUrls = [webhookUrl];
     try {
@@ -166,6 +371,11 @@ async function dispatchN8NWebhook({ campaignId, recipients = [], templateText = 
         targetUrls.push(`${origin}/webhook-test/dukaanquest-crm`);
       }
     } catch (e) {}
+
+    // Keep the FIRST real downstream failure. A later 404 from the
+    // /webhook-test fallback (only registered while the n8n editor has the
+    // workflow open) must never overwrite what Meta actually said.
+    let preservedFailure = null;
 
     for (const url of targetUrls) {
       try {
@@ -191,7 +401,12 @@ async function dispatchN8NWebhook({ campaignId, recipients = [], templateText = 
         if (whatsappMessageId) {
           liveDeliveryConfirmed = true;
           executionStatus = 'LIVE_DELIVERY_CONFIRMED';
-          externalStatusDetail = `External Meta WhatsApp Cloud API confirmed delivery (Message ID: ${whatsappMessageId})`;
+          externalStatusDetail = `Meta WhatsApp ACCEPTED the send (Message ID: ${whatsappMessageId}). Final delivery is reported asynchronously on the status webhook.`;
+        } else if ((metaRejection = classifyMetaError(extractMetaErrorFromN8NResponse(response.data)))) {
+          liveDeliveryConfirmed = false;
+          executionStatus = 'META_REJECTED';
+          errorDetail = metaRejection.message;
+          externalStatusDetail = `Meta WhatsApp rejected the send: ${metaRejection.message}. ${metaRejection.hint}`;
         } else {
           executionStatus = 'LIVE_ACKNOWLEDGED_PENDING_CONFIRMATION';
           externalStatusDetail = 'n8n received webhook; external delivery confirmation pending.';
@@ -199,15 +414,28 @@ async function dispatchN8NWebhook({ campaignId, recipients = [], templateText = 
         break; // Stop after first successful response
       } catch (err) {
         const status = err.response?.status;
-        if (status === 404 && targetUrls.indexOf(url) < targetUrls.length - 1) {
-          // If production webhook returned 404, try test webhook URL
+        const isLastUrl = targetUrls.indexOf(url) === targetUrls.length - 1;
+
+        if (status === 404 && !isLastUrl) {
+          // Production webhook not registered on this URL; try the next one.
           continue;
         }
-        if (status) {
+
+        if (status === 404) {
+          // No webhook registered on ANY candidate URL.
+          if (preservedFailure) break;
+          dispatchedToLiveInstance = false;
+          executionStatus = 'UNREACHABLE';
+          errorDetail = err.response?.data?.message || err.message;
+          externalStatusDetail = `n8n webhook not registered: ${errorDetail}. Operating in staged fallback mode.`;
+        } else if (status) {
           dispatchedToLiveInstance = true;
           executionStatus = 'DOWNSTREAM_ERROR';
           errorDetail = err.response?.data?.message || err.message;
-          externalStatusDetail = `Live n8n webhook executed, but downstream node failed: HTTP ${status} - ${errorDetail}.`;
+          metaRejection = classifyMetaError(err.response?.data);
+          // No automatic substitution to hello_world: a Meta rejection of the
+          // approved template is surfaced to the merchant as a failure.
+          externalStatusDetail = `Live n8n webhook executed, but downstream node failed: HTTP ${status} - ${errorDetail}.${metaRejection ? ` (${metaRejection.hint})` : ''}`;
         } else {
           dispatchedToLiveInstance = false;
           executionStatus = 'UNREACHABLE';
@@ -215,20 +443,28 @@ async function dispatchN8NWebhook({ campaignId, recipients = [], templateText = 
           externalStatusDetail = `n8n webhook unreachable: ${err.message}. Operating in staged fallback mode.`;
         }
         console.warn(`[n8n Service] Live webhook call (${url}) notice: ${externalStatusDetail}`);
+
+        if (status && status !== 404) {
+          // Remember the FIRST genuine downstream failure; a later 404 from
+          // the /webhook-test fallback (only registered while the n8n editor
+          // has the workflow open) must not overwrite what Meta actually said.
+          if (!preservedFailure) preservedFailure = { status };
+          else break;
+        }
       }
     }
   }
 
   // Final check: if execution succeeded in n8n, grab the message ID
-  if (!whatsappMessageId) {
+  if (!whatsappMessageId && dispatchedToLiveInstance) {
     const execConf = getLatestMetaMessageId();
     if (execConf?.messageId) {
-      whatsappMessageId = execConf.messageId;
-      liveDeliveryConfirmed = true;
-      dispatchedToLiveInstance = true;
-      executionStatus = 'LIVE_DELIVERY_CONFIRMED';
-      externalStatusDetail = `External Meta WhatsApp Cloud API confirmed delivery (Message ID: ${whatsappMessageId})`;
-    }
+        whatsappMessageId = execConf.messageId;
+        liveDeliveryConfirmed = true;
+        dispatchedToLiveInstance = true;
+        executionStatus = 'LIVE_DELIVERY_CONFIRMED';
+        externalStatusDetail = `Meta WhatsApp ACCEPTED the send (Message ID: ${whatsappMessageId}). Final delivery is reported asynchronously on the status webhook.`;
+      }
   }
 
   const latencyMs = Date.now() - startTime;
@@ -239,6 +475,10 @@ async function dispatchN8NWebhook({ campaignId, recipients = [], templateText = 
     dispatchedToLiveInstance,
     liveDeliveryConfirmed,
     whatsappMessageId,
+    // A wamid means Meta accepted the message, NOT that it was delivered.
+    // Meta reports the real outcome asynchronously; see whatsappStatusService.
+    metaAccepted: !!whatsappMessageId,
+    deliveryStatus: whatsappMessageId ? 'accepted' : (executionStatus === 'META_REJECTED' ? 'failed' : 'not_sent'),
     executionStatus,
     mode: liveDeliveryConfirmed ? "live" : (dispatchedToLiveInstance ? "live-webhook-downstream-error" : "staged-fallback"),
     classification: liveDeliveryConfirmed ? "LIVE" : (dispatchedToLiveInstance ? "STAGED" : "FALLBACK"),
@@ -251,6 +491,7 @@ async function dispatchN8NWebhook({ campaignId, recipients = [], templateText = 
     templateConfig,
     n8nResponse: liveResponseData,
     errorDetail,
+    metaRejection,
     externalStatusDetail,
     latencyMs,
     stagedPayloadPreview: payload
@@ -310,6 +551,7 @@ function getN8NWorkflowDefinition() {
           phoneNumber: "={{$json.primaryRecipientPayload.to}}"
         },
         name: "Meta WhatsApp Cloud API Node",
+        notes: `Sends Meta-approved template ${templateConfig.activeTemplate} (locale ${templateConfig.language}, ${templateConfig.category}). Body parameters follow the approved positional order: ${templateConfig.bodyParameterOrder.join(', ') || 'none'}.`,
         type: "n8n-nodes-base.whatsApp",
         typeVersion: 1,
         position: [1200, 300]
@@ -329,23 +571,40 @@ function getN8NWorkflowDefinition() {
  * Health check helper for n8n — probes actual running instance
  */
 async function getN8NHealth() {
-  const webhookUrl = process.env.N8N_WEBHOOK_URL || 'http://localhost:5678/webhook/dukaanquest-crm';
+  const webhookUrl = getN8NWebhookUrl();
   const templateConfig = getWhatsAppTemplateConfig();
   let isLive = false;
   let httpStatus = null;
   let detail = null;
+
+  if (!webhookUrl) {
+    // Production with N8N_WEBHOOK_URL unset. A deployed function cannot reach
+    // localhost:5678, so this is a configuration gap, not an outage.
+    return {
+      configured: false,
+      isLive: false,
+      mode: "not-configured",
+      classification: "FALLBACK",
+      endpoint: null,
+      httpStatus: null,
+      verificationStatus: "NOT_CONFIGURED",
+      verificationDetail: "N8N_WEBHOOK_URL is not set. WhatsApp automation needs an n8n instance reachable from the public internet; localhost is not reachable from a deployed function. See VERCEL_DEPLOYMENT.md.",
+      whatsappTemplate: templateConfig,
+      description: "Event-driven workflow orchestration engine with Human-in-the-Loop verification and Meta WhatsApp Cloud API template delivery"
+    };
+  }
 
   try {
     const origin = new URL(webhookUrl).origin;
     const probe = await axios.get(`${origin}/healthz`, { timeout: 3000 });
     isLive = probe.status === 200;
     httpStatus = probe.status;
-    detail = "n8n automation engine is running and responding on port 5678";
+    detail = `n8n automation engine is responding at ${origin}`;
   } catch (err) {
     httpStatus = err.response?.status || null;
     isLive = err.response?.status === 200 || err.response?.status === 404; // 404 on healthz means server is up
     detail = err.code === 'ECONNREFUSED'
-      ? "n8n server is offline (port 5678 unreachable)"
+      ? "n8n server is offline (unreachable at the configured N8N_WEBHOOK_URL origin)"
       : `n8n server responding (HTTP ${err.response?.status || err.message})`;
   }
 
@@ -368,5 +627,8 @@ module.exports = {
   getN8NWorkflowDefinition,
   getN8NHealth,
   getWhatsAppTemplateConfig,
-  normalizePhone
+  normalizePhone,
+  TEMPLATE_REGISTRY,
+  APPROVED_CAMPAIGN_TEMPLATE,
+  TECHNICAL_TEST_TEMPLATE
 };

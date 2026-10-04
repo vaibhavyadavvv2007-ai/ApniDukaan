@@ -240,7 +240,7 @@ function _exportFallback(sku, payload, reason, httpStatus = null, rawError = nul
     success: true,
     mode: 'export-fallback',
     sandboxWriteSupported: false,
-    source: 'DukaanQuest Export Engine (Sandbox write unavailable)',
+    source: 'ApniDukaan Export Engine (Sandbox write unavailable)',
     sku,
     reason,
     httpStatus,
@@ -266,7 +266,7 @@ function _fallbackProductTypes(keywords, reason) {
   return {
     success: true,
     mode: 'export-fallback',
-    source: 'DukaanQuest Reference Data (Sandbox endpoint unavailable)',
+    source: 'ApniDukaan Reference Data (Sandbox endpoint unavailable)',
     reason,
     productTypes: [
       { name: 'SAREE', marketplaceIds: [MARKETPLACE_ID_IN], displayName: 'Saree' },
@@ -276,7 +276,7 @@ function _fallbackProductTypes(keywords, reason) {
       { name: 'DRESS', marketplaceIds: [MARKETPLACE_ID_IN], displayName: 'Dress' }
     ],
     totalCount: 5,
-    notice: 'Product types sourced from DukaanQuest reference catalog. Use searchProductTypes in production for live catalog.'
+    notice: 'Product types sourced from ApniDukaan reference catalog. Use searchProductTypes in production for live catalog.'
   };
 }
 
@@ -284,7 +284,7 @@ function _fallbackDefinition(productType, reason) {
   return {
     success: true,
     mode: 'export-fallback',
-    source: 'DukaanQuest Reference Schema (Sandbox endpoint unavailable)',
+    source: 'ApniDukaan Reference Schema (Sandbox endpoint unavailable)',
     reason,
     productType,
     requiredAttributes: [

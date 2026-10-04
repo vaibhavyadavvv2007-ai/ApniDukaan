@@ -1,21 +1,23 @@
 import { Check } from 'lucide-react';
 import { JOURNEY } from '../../data/workspace';
+import { useTranslation } from '../../i18n/TranslationProvider';
 
 export default function JourneyRail({ stepDone, activeTab, onNavigate, doneCount }) {
+   const { tx } = useTranslation();
   const journeyIndex = JOURNEY.findIndex(s => s.id === activeTab);
 
   return (
-    <section className="journey" aria-label="Golden journey">
+    <section className="journey" aria-label={tx('Golden journey')}>
       <div className="journey-head">
         <div className="journey-head-text">
-          <h2 className="journey-title">From photo to profit</h2>
+          <h2 className="journey-title">{tx('From photo to profit')}</h2>
           <p className="meta">{doneCount} of {JOURNEY.length} engines running</p>
         </div>
         <div className="journey-score">
           <span className="journey-score-value">
             {doneCount}<span className="journey-score-of">/{JOURNEY.length}</span>
           </span>
-          <span className="journey-score-label">steps done</span>
+          <span className="journey-score-label">{tx('steps done')}</span>
         </div>
       </div>
 
