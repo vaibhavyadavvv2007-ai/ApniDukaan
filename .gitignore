@@ -1,12 +1,36 @@
-# Ruflo local secrets and runtime data
+# Dependencies
+node_modules/
+
+# Build output
+dist/
+build/
+
+# Secrets — only .env.example files are tracked
 .env
 .env.local
 .env.*.local
-.claude-flow/data/
-.claude-flow/logs/
-.claude-flow/sessions/
-node_modules/
-dist/
-build/
-.DS_Store
 
+# Local runtime data (JSON store)
+*.db
+*.sqlite
+
+# Editor / OS
+.DS_Store
+Thumbs.db
+.idea/
+.vscode/*
+!.vscode/extensions.json
+*.log
+npm-debug.log*
+
+# AI tooling scaffolding — not part of the application
+.agents/
+.claude/
+.claude-flow/
+.freebuff/
+.impeccable/
+.planning/
+.swarm/
+.mcp.json
+skills-lock.json
+brag-output-*/

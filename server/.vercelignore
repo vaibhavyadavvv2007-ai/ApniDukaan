@@ -1,0 +1,19 @@
+# Files that must NEVER be uploaded to Vercel.
+#
+# When this project uses Root Directory = `server`, Vercel resolves ignore
+# files relative to that directory rather than the repository root. This file
+# therefore duplicates the critical rule from the root .gitignore so that the
+# real secrets in server/.env cannot be uploaded even if the root ignore file
+# is not consulted.
+
+# Real credentials: Gemini, Sarvam, Amazon SP-API, Paytm.
+.env
+.env.*
+!.env.example
+
+# Local n8n workflow patcher helpers and local test harness.
+scripts/
+
+# Not needed at runtime (Vercel installs from package-lock.json).
+test_api.ps1
+node_modules/
